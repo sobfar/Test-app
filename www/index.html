@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>اپ سلام</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, Tahoma, sans-serif;
+      background: #0f172a;
+      color: #f1f5f9;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      padding: 24px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    #message {
+      font-size: 32px;
+      font-weight: 700;
+      min-height: 48px;
+      color: #22d3ee;
+    }
+    button {
+      font-size: 18px;
+      font-weight: 600;
+      padding: 16px 40px;
+      border: none;
+      border-radius: 14px;
+      background: #22d3ee;
+      color: #0f172a;
+      cursor: pointer;
+    }
+    button:active {
+      transform: scale(0.97);
+      background: #0ea5c4;
+    }
+  </style>
+</head>
+<body>
+  <h1>اپ تست من</h1>
+  <div id="message"></div>
+  <button id="helloBtn">بزن بریم</button>
+
+  <script>
+    document.getElementById('helloBtn').addEventListener('click', function () {
+      document.getElementById('message').textContent = 'سلام 👋';
+    });
+  </script>
+</body>
+</html>
