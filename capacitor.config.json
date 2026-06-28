@@ -1,0 +1,6 @@
+{
+  "appId": "com.shadowdev.helloapp",
+  "appName": "HelloApp",
+  "webDir": "www",
+  "bundledWebRuntime": false
+}
