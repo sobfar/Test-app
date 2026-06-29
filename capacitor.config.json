@@ -1,6 +1,6 @@
 {
-  "appId": "com.shadowdev.helloapp",
-  "appName": "HelloApp",
+  "appId": "com.shadowdev.tictactoe",
+  "appName": "ایکس او",
   "webDir": "www",
   "bundledWebRuntime": false
 }
