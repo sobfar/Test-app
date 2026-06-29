@@ -5,138 +5,245 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>بازی ایکس او</title>
   <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    @keyframes popIn {
+      0%   { transform: scale(0.4); opacity: 0; }
+      70%  { transform: scale(1.15); }
+      100% { transform: scale(1); opacity: 1; }
     }
+    @keyframes fadeOut {
+      0%   { opacity: 1; transform: scale(1); }
+      100% { opacity: 0.15; transform: scale(0.8); }
+    }
+    @keyframes winPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,238,0.4); }
+      50%       { box-shadow: 0 0 0 12px rgba(34,211,238,0); }
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes scoreFlash {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.4); color: #22d3ee; }
+      100% { transform: scale(1); }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     html, body {
       height: 100%;
       font-family: -apple-system, Tahoma, sans-serif;
-      background: #0f172a;
+      background: #060d1a;
       color: #f1f5f9;
+      overflow: hidden;
     }
+
     body {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 18px;
-      padding: 24px;
+      gap: 20px;
+      padding: 20px;
       text-align: center;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(34,211,238,0.07) 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 80%, rgba(244,114,182,0.07) 0%, transparent 55%),
+        #060d1a;
     }
+
     h1 {
-      font-size: 22px;
-      font-weight: 700;
-      color: #94a3b8;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, #22d3ee, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
+
+    /* Mode bar */
     #modeBar {
       display: flex;
-      gap: 8px;
-      background: #1e293b;
-      padding: 6px;
-      border-radius: 14px;
+      gap: 6px;
+      background: #0f172a;
+      padding: 5px;
+      border-radius: 16px;
+      border: 1px solid #1e293b;
     }
     .modeBtn {
-      font-size: 14px;
-      font-weight: 600;
-      padding: 10px 18px;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 9px 20px;
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       background: transparent;
-      color: #94a3b8;
+      color: #475569;
       cursor: pointer;
+      transition: all 0.25s;
     }
     .modeBtn.active {
-      background: #22d3ee;
+      background: linear-gradient(135deg, #22d3ee, #0ea5e9);
       color: #0f172a;
+      box-shadow: 0 4px 14px rgba(34,211,238,0.35);
     }
+
+    /* Status */
     #status {
-      font-size: 20px;
-      font-weight: 600;
-      min-height: 28px;
+      font-size: 18px;
+      font-weight: 700;
+      min-height: 26px;
+      color: #94a3b8;
+      animation: slideDown 0.3s ease;
+    }
+    #status .highlight {
       color: #22d3ee;
     }
+
+    /* Board */
     #board {
       display: grid;
-      grid-template-columns: repeat(3, 96px);
-      grid-template-rows: repeat(3, 96px);
-      gap: 8px;
+      grid-template-columns: repeat(3, 100px);
+      grid-template-rows: repeat(3, 100px);
+      gap: 10px;
     }
+
     .cell {
-      background: #1e293b;
-      border: none;
-      border-radius: 14px;
-      font-size: 44px;
-      font-weight: 800;
-      color: #f1f5f9;
+      background: #0f172a;
+      border: 1.5px solid #1e293b;
+      border-radius: 18px;
+      font-size: 46px;
+      font-weight: 900;
+      color: transparent;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      position: relative;
+      transition: border-color 0.2s, background 0.2s;
     }
-    .cell.x { color: #22d3ee; }
-    .cell.o { color: #f472b6; }
+    .cell:not(:disabled):hover {
+      background: #1e293b;
+      border-color: #334155;
+    }
+    .cell.x {
+      color: #22d3ee;
+      text-shadow: 0 0 18px rgba(34,211,238,0.5);
+      animation: popIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .cell.o {
+      color: #f472b6;
+      text-shadow: 0 0 18px rgba(244,114,182,0.5);
+      animation: popIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
     .cell.fading {
-      opacity: 0.4;
+      animation: fadeOut 0.3s ease forwards;
     }
     .cell.win {
-      background: #334155;
+      background: #0f2533;
+      border-color: #22d3ee;
+      animation: winPulse 1s ease infinite;
     }
-    .cell:disabled {
-      cursor: default;
+    .cell.win.o-win {
+      background: #230f1e;
+      border-color: #f472b6;
+      animation: winPulse-o 1s ease infinite;
     }
+    @keyframes winPulse-o {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(244,114,182,0.4); }
+      50%       { box-shadow: 0 0 0 12px rgba(244,114,182,0); }
+    }
+    .cell:disabled { cursor: default; }
+
+    /* Scores */
+    #scoreBoard {
+      display: flex;
+      gap: 12px;
+    }
+    .scoreCard {
+      background: #0f172a;
+      border: 1.5px solid #1e293b;
+      border-radius: 16px;
+      padding: 12px 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 80px;
+    }
+    .scoreLabel {
+      font-size: 11px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .scoreNum {
+      font-size: 28px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    #scoreX .scoreNum  { color: #22d3ee; }
+    #scoreO .scoreNum  { color: #f472b6; }
+    .scoreNum.flash    { animation: scoreFlash 0.4s ease; }
+
+    /* Reset button */
     #resetBtn {
-      font-size: 16px;
-      font-weight: 600;
-      padding: 12px 32px;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 12px 28px;
       border: none;
       border-radius: 14px;
-      background: #22d3ee;
+      background: linear-gradient(135deg, #22d3ee, #0ea5e9);
       color: #0f172a;
       cursor: pointer;
+      box-shadow: 0 4px 14px rgba(34,211,238,0.3);
+      transition: transform 0.15s, box-shadow 0.15s;
     }
     #resetBtn:active {
-      transform: scale(0.97);
-      background: #0ea5c4;
+      transform: scale(0.95);
+      box-shadow: none;
     }
-    #score {
-      font-size: 14px;
-      color: #64748b;
-      display: flex;
-      gap: 18px;
-    }
+
     #hint {
-      font-size: 12px;
-      color: #475569;
+      font-size: 11px;
+      color: #334155;
       max-width: 300px;
+      line-height: 1.6;
     }
   </style>
 </head>
 <body>
-  <h1>ایکس او بی‌پایان</h1>
+  <h1>ایکس او</h1>
 
   <div id="modeBar">
-    <button class="modeBtn active" id="modePvP">دو نفره</button>
-    <button class="modeBtn" id="modeCPU">با ربات</button>
+    <button class="modeBtn active" id="modePvP">👥 دو نفره</button>
+    <button class="modeBtn" id="modeCPU">🤖 با ربات</button>
   </div>
 
-  <div id="status">نوبت بازیکن X</div>
+  <div id="status">نوبت بازیکن <span class="highlight">X</span></div>
+
   <div id="board"></div>
-  <button id="resetBtn">شروع دوباره</button>
-  <div id="score">
-    <span id="scoreX">X: 0</span>
-    <span id="scoreO">O: 0</span>
+
+  <div id="scoreBoard">
+    <div class="scoreCard" id="scoreX">
+      <div class="scoreLabel">بازیکن X</div>
+      <div class="scoreNum" id="numX">0</div>
+    </div>
+    <div class="scoreCard" id="scoreO">
+      <div class="scoreLabel" id="labelO">بازیکن O</div>
+      <div class="scoreNum" id="numO">0</div>
+    </div>
   </div>
-  <div id="hint">هر بازیکن حداکثر ۳ مهره دارد؛ مهره‌ی چهارم باعث حذف قدیمی‌ترین مهره می‌شود. بازی مساوی ندارد.</div>
+
+  <button id="resetBtn">🔄 شروع دوباره</button>
+  <div id="hint">هر بازیکن حداکثر ۳ مهره دارد — مهره‌ی چهارم، قدیمی‌ترین مهره را حذف می‌کند</div>
 
   <script>
-    const boardEl = document.getElementById('board');
-    const statusEl = document.getElementById('status');
-    const resetBtn = document.getElementById('resetBtn');
-    const scoreXEl = document.getElementById('scoreX');
-    const scoreOEl = document.getElementById('scoreO');
+    const boardEl    = document.getElementById('board');
+    const statusEl   = document.getElementById('status');
+    const resetBtn   = document.getElementById('resetBtn');
+    const numXEl     = document.getElementById('numX');
+    const numOEl     = document.getElementById('numO');
+    const labelOEl   = document.getElementById('labelO');
     const modePvPBtn = document.getElementById('modePvP');
     const modeCPUBtn = document.getElementById('modeCPU');
 
@@ -145,194 +252,171 @@
       [0,3,6],[1,4,7],[2,5,8],
       [0,4,8],[2,4,6]
     ];
-
     const MAX_PER_PLAYER = 3;
-
-    let cells = Array(9).fill(null);
-    let moveQueues = { X: [], O: [] }; // ترتیب حرکت‌های هر بازیکن برای حذف قدیمی‌ترین
-    let currentPlayer = 'X';
-    let gameOver = false;
-    let scores = { X: 0, O: 0 };
-    let vsCPU = false;
     const CPU_PLAYER = 'O';
+    const MAX_DEPTH = 6;
 
-    modePvPBtn.addEventListener('click', () => setMode(false));
-    modeCPUBtn.addEventListener('click', () => setMode(true));
+    let cells, moveQueues, currentPlayer, gameOver, scores, vsCPU;
+
+    function init(resetScores) {
+      cells         = Array(9).fill(null);
+      moveQueues    = { X: [], O: [] };
+      currentPlayer = 'X';
+      gameOver      = false;
+      if (resetScores) scores = { X: 0, O: 0 };
+      updateStatus('نوبت بازیکن', 'X');
+      renderBoard();
+      updateScoreUI();
+    }
 
     function setMode(isCPU) {
       vsCPU = isCPU;
       modePvPBtn.classList.toggle('active', !isCPU);
       modeCPUBtn.classList.toggle('active', isCPU);
-      resetGame();
+      labelOEl.textContent = isCPU ? 'ربات' : 'بازیکن O';
+      init(true); // تغییر تب → امتیازها صفر می‌شوند
     }
 
-    function renderBoard(fadeIndex) {
+    modePvPBtn.addEventListener('click', () => setMode(false));
+    modeCPUBtn.addEventListener('click', () => setMode(true));
+    resetBtn.addEventListener('click', () => init(false)); // فقط صفحه ریست، امتیاز باقی
+
+    function updateStatus(msg, highlight) {
+      statusEl.innerHTML = highlight
+        ? `${msg} <span class="highlight">${highlight}</span>`
+        : msg;
+    }
+
+    function renderBoard(fadeIndex = -1, winLine = []) {
       boardEl.innerHTML = '';
       cells.forEach((value, index) => {
         const btn = document.createElement('button');
         let cls = 'cell';
         if (value) cls += ' ' + value.toLowerCase();
         if (index === fadeIndex) cls += ' fading';
+        if (winLine.includes(index)) {
+          cls += ' win';
+          if (value === 'O') cls += ' o-win';
+        }
         btn.className = cls;
         btn.textContent = value || '';
-        const locked = !!value || gameOver || (vsCPU && currentPlayer === CPU_PLAYER);
-        btn.disabled = locked;
+        btn.disabled = !!value || gameOver || (vsCPU && currentPlayer === CPU_PLAYER);
         btn.addEventListener('click', () => handleMove(index));
         boardEl.appendChild(btn);
       });
     }
 
     function checkWinner(board) {
-      for (const line of WIN_LINES) {
-        const [a, b, c] = line;
-        if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-          return { winner: board[a], line };
-        }
+      for (const [a, b, c] of WIN_LINES) {
+        if (board[a] && board[a] === board[b] && board[a] === board[c])
+          return { winner: board[a], line: [a, b, c] };
       }
-      return null; // بدون حالت مساوی
+      return null;
+    }
+
+    function applyMove(board, queues, index, player) {
+      const q = queues[player];
+      let removed = -1;
+      if (q.length >= MAX_PER_PLAYER) {
+        removed = q.shift();
+        board[removed] = null;
+      }
+      board[index] = player;
+      q.push(index);
+      return removed;
     }
 
     function handleMove(index) {
       if (cells[index] || gameOver) return;
       if (vsCPU && currentPlayer === CPU_PLAYER) return;
       playMove(index, currentPlayer);
-
       if (!gameOver && vsCPU && currentPlayer === CPU_PLAYER) {
-        statusEl.textContent = 'نوبت ربات...';
+        updateStatus('ربات در حال فکر کردن...');
         renderBoard();
-        setTimeout(cpuMove, 450);
+        setTimeout(cpuMove, 480);
       }
-    }
-
-    // اعمال یک حرکت با منطق حذف قدیمی‌ترین مهره در صورت رسیدن به سقف ۳
-    function applyMove(board, queues, index, player) {
-      const queue = queues[player];
-      if (queue.length >= MAX_PER_PLAYER) {
-        const oldest = queue.shift();
-        board[oldest] = null;
-      }
-      board[index] = player;
-      queue.push(index);
     }
 
     function playMove(index, player) {
-      const queue = moveQueues[player];
-      let removedIndex = -1;
-      if (queue.length >= MAX_PER_PLAYER) {
-        removedIndex = queue[0];
-      }
-
-      applyMove(cells, moveQueues, index, player);
-
-      if (removedIndex !== -1) {
-        renderBoard(removedIndex);
-      }
+      const removed = applyMove(cells, moveQueues, index, player);
+      if (removed !== -1) renderBoard(removed);
 
       const result = checkWinner(cells);
       if (result) {
         gameOver = true;
-        const label = (vsCPU && result.winner === CPU_PLAYER) ? 'ربات' : 'بازیکن ' + result.winner;
-        statusEl.textContent = label + ' برد! 🎉';
         scores[result.winner]++;
-        if (result.winner === 'X') {
-          scoreXEl.textContent = 'X: ' + scores.X;
-        } else {
-          scoreOEl.textContent = 'O: ' + scores.O;
-        }
-        highlightWin(result.line);
+        const label = (vsCPU && result.winner === CPU_PLAYER)
+          ? '🤖 ربات برد!'
+          : `🎉 بازیکن ${result.winner} برد!`;
+        updateStatus(label);
+        updateScoreUI(result.winner);
+        renderBoard(-1, result.line);
         return;
       }
 
       currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
       if (!(vsCPU && currentPlayer === CPU_PLAYER)) {
-        statusEl.textContent = 'نوبت بازیکن ' + currentPlayer;
+        const label = (vsCPU && currentPlayer === 'X') ? 'نوبت شما' : 'نوبت بازیکن';
+        updateStatus(label, currentPlayer);
       }
       renderBoard();
     }
 
     function cpuMove() {
       if (gameOver) return;
-      const bestIndex = findBestMove();
-      if (bestIndex !== -1) {
-        playMove(bestIndex, CPU_PLAYER);
-      }
+      const best = findBestMove();
+      if (best !== -1) playMove(best, CPU_PLAYER);
     }
 
-    // شبیه‌سازی حرکت روی یک کپی از وضعیت فعلی برای ارزیابی Minimax
     function simulateMove(board, queues, index, player) {
-      const newBoard = board.slice();
-      const newQueues = { X: queues.X.slice(), O: queues.O.slice() };
-      applyMove(newBoard, newQueues, index, player);
-      return { board: newBoard, queues: newQueues };
+      const b = board.slice();
+      const q = { X: queues.X.slice(), O: queues.O.slice() };
+      applyMove(b, q, index, player);
+      return { board: b, queues: q };
     }
 
     function findBestMove() {
-      const opponent = CPU_PLAYER === 'X' ? 'O' : 'X';
-      let bestScore = -Infinity;
-      let bestMove = -1;
-      const emptyCells = [];
-      for (let i = 0; i < 9; i++) if (!cells[i]) emptyCells.push(i);
-
-      for (const i of emptyCells) {
-        const sim = simulateMove(cells, moveQueues, i, CPU_PLAYER);
-        const score = minimax(sim.board, sim.queues, 1, false, CPU_PLAYER, opponent);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMove = i;
+      let bestScore = -Infinity, bestMove = -1;
+      for (let i = 0; i < 9; i++) {
+        if (!cells[i]) {
+          const sim = simulateMove(cells, moveQueues, i, CPU_PLAYER);
+          const score = minimax(sim.board, sim.queues, 1, false, CPU_PLAYER, 'X');
+          if (score > bestScore) { bestScore = score; bestMove = i; }
         }
       }
       return bestMove;
     }
 
-    // محدودیت عمق چون بازی بی‌پایان است و درخت حالت‌ها تمام نمی‌شود
-    const MAX_DEPTH = 6;
-
-    function minimax(board, queues, depth, isMaximizing, player, opponent) {
-      const result = checkWinner(board);
-      if (result) {
-        if (result.winner === player) return 20 - depth;
-        if (result.winner === opponent) return depth - 20;
-      }
+    function minimax(board, queues, depth, isMax, player, opp) {
+      const res = checkWinner(board);
+      if (res) return res.winner === player ? 20 - depth : depth - 20;
       if (depth >= MAX_DEPTH) return 0;
 
-      const emptyCells = [];
-      for (let i = 0; i < 9; i++) if (!board[i]) emptyCells.push(i);
+      let best = isMax ? -Infinity : Infinity;
+      for (let i = 0; i < 9; i++) {
+        if (!board[i]) {
+          const sim = simulateMove(board, queues, i, isMax ? player : opp);
+          const score = minimax(sim.board, sim.queues, depth + 1, !isMax, player, opp);
+          best = isMax ? Math.max(best, score) : Math.min(best, score);
+        }
+      }
+      return best;
+    }
 
-      if (isMaximizing) {
-        let best = -Infinity;
-        for (const i of emptyCells) {
-          const sim = simulateMove(board, queues, i, player);
-          best = Math.max(best, minimax(sim.board, sim.queues, depth + 1, false, player, opponent));
-        }
-        return best;
-      } else {
-        let best = Infinity;
-        for (const i of emptyCells) {
-          const sim = simulateMove(board, queues, i, opponent);
-          best = Math.min(best, minimax(sim.board, sim.queues, depth + 1, true, player, opponent));
-        }
-        return best;
+    function updateScoreUI(flashPlayer) {
+      numXEl.textContent = scores.X;
+      numOEl.textContent = scores.O;
+      if (flashPlayer) {
+        const el = flashPlayer === 'X' ? numXEl : numOEl;
+        el.classList.remove('flash');
+        void el.offsetWidth;
+        el.classList.add('flash');
       }
     }
 
-    function highlightWin(line) {
-      line.forEach(i => {
-        const btn = boardEl.children[i];
-        if (btn) btn.classList.add('win');
-      });
-    }
-
-    function resetGame() {
-      cells = Array(9).fill(null);
-      moveQueues = { X: [], O: [] };
-      currentPlayer = 'X';
-      gameOver = false;
-      statusEl.textContent = 'نوبت بازیکن X';
-      renderBoard();
-    }
-
-    resetBtn.addEventListener('click', resetGame);
-    renderBoard();
+    // شروع اولیه
+    vsCPU = false;
+    init(true);
   </script>
 </body>
 </html>
