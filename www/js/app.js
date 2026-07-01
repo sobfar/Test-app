@@ -198,8 +198,10 @@
   // app state
   // ---------------------------------------------------------------------
   const state = {
-    view: "menu", // menu | howto | game
+    view: "menu", // menu | howto | game | store
     highScore: 0,
+    adsRemoved: false,
+    bonusHints: 0,
     sessionWords: WORD_BANK,
     roundIndex: 0,
     round: null,
@@ -232,12 +234,17 @@
     try {
       if (!gameTouchedThisSession) {
         // Nothing has happened yet this session (e.g. the very first render
-        // on page load) — only persist highScore, leave any existing saved
-        // game slot exactly as it was so "ادامه‌ی بازی" keeps working.
+        // on page load) — only persist highScore/purchases, leave any
+        // existing saved game slot exactly as it was so "ادامه‌ی بازی" keeps working.
         const existing = loadSave() || {};
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify({ ...existing, highScore: state.highScore })
+          JSON.stringify({
+            ...existing,
+            highScore: state.highScore,
+            adsRemoved: state.adsRemoved,
+            bonusHints: state.bonusHints,
+          })
         );
         return;
       }
@@ -245,6 +252,8 @@
         !!state.round && state.roundIndex < state.sessionWords.length;
       const payload = {
         highScore: state.highScore,
+        adsRemoved: state.adsRemoved,
+        bonusHints: state.bonusHints,
         game: hasActiveGame
           ? {
               sessionWords: state.sessionWords,
@@ -287,11 +296,17 @@
     render();
   }
 
-  // restore best score on startup
+  // restore best score + purchases on startup
   (function initFromStorage() {
     const saved = loadSave();
     if (saved && typeof saved.highScore === "number") {
       state.highScore = saved.highScore;
+    }
+    if (saved && typeof saved.adsRemoved === "boolean") {
+      state.adsRemoved = saved.adsRemoved;
+    }
+    if (saved && typeof saved.bonusHints === "number") {
+      state.bonusHints = saved.bonusHints;
     }
   })();
 
@@ -308,9 +323,17 @@
         state.status = "correct";
         state.score += 10 + (state.revealedHint ? 0 : 5);
         state.streak += 1;
+        if (window.FX) {
+          window.FX.playCorrect();
+          window.FX.vibrate("medium");
+        }
       } else {
         state.status = "wrong";
         state.streak = 0;
+        if (window.FX) {
+          window.FX.playWrong();
+          window.FX.vibrate("heavy");
+        }
       }
     }
   }
@@ -343,9 +366,11 @@
   // ---------------------------------------------------------------------
   function renderMenu() {
     const resumable = getResumableGame();
+    const muted = window.FX ? window.FX.isMuted() : false;
     root.innerHTML = `
       <div class="menu-scene">
         ${starFieldHTML()}
+        <button class="sound-toggle" data-action="toggle-sound" aria-label="صدا">${muted ? "🔇" : "🔊"}</button>
         <div class="medallion-wrap">
           ${svgMedallion()}
           <h1 class="game-title">واژه‌بافی</h1>
@@ -361,6 +386,7 @@
           <button class="btn-primary" data-action="play">${ICON.play()} شروع بازی</button>
         `}
         <button class="btn-secondary" data-action="howto">${ICON.help()} راهنمای بازی</button>
+        <button class="btn-secondary" data-action="store">🛍️ فروشگاه</button>
         <div class="menu-footer">
           ${svgBotehBand()}
           <p class="menu-footer-text">${WORD_BANK.length} کلمه · نسخه‌ی آزمایشی</p>
@@ -391,6 +417,45 @@
             ${steps.map((s, i) => `<li><span class="howto-num">${i + 1}</span><span>${s}</span></li>`).join("")}
           </ol>
           <button class="btn-ok" data-action="back-to-menu">باشه، فهمیدم</button>
+        </div>
+      </div>
+    `;
+  }
+
+  // ---------------------------------------------------------------------
+  // render: STORE
+  // ---------------------------------------------------------------------
+  function renderStore() {
+    const products = window.IAP ? window.IAP.listProducts() : [];
+    root.innerHTML = `
+      <div class="screen-center">
+        ${ambientOrbsHTML()}
+        <div class="card">
+          ${cardMotifHTML()}
+          <button class="back-link" data-action="back-to-menu">${ICON.back()} بازگشت</button>
+          <h2 class="howto-title">فروشگاه</h2>
+          <p style="font-size:0.8rem; opacity:0.6; margin:-8px 0 16px;">نسخه‌ی نمونه — بدون درگاه پرداخت واقعی</p>
+          <div class="store-list">
+            ${products
+              .map((p) => {
+                const owned = p.id === "remove_ads" && state.adsRemoved;
+                return `
+                  <div class="store-item">
+                    <div class="store-item-info">
+                      <div class="store-item-title">${p.title}</div>
+                      <div class="store-item-desc">${p.desc}</div>
+                    </div>
+                    ${
+                      owned
+                        ? `<span class="store-owned-tag">${ICON.check()} خریداری‌شده</span>`
+                        : `<button class="store-buy-btn" data-action="buy" data-product-id="${p.id}">${p.price}</button>`
+                    }
+                  </div>
+                `;
+              })
+              .join("")}
+          </div>
+          ${state.bonusHints > 0 ? `<p class="store-bonus-note">💎 ${state.bonusHints} راهنمای خریداری‌شده در انتظار استفاده</p>` : ""}
         </div>
       </div>
     `;
@@ -464,7 +529,13 @@
           <div class="game-topbar">
             <div class="stat-score">${ICON.star("var(--terracotta)")} ${state.score}</div>
             <div class="stat-streak">${ICON.flame(state.streak > 0 ? "var(--red)" : "none")} ${state.streak}</div>
-            <button class="hint-btn" data-action="hint" ${state.status !== "playing" ? "disabled" : ""}>${state.hintsLeft > 0 ? `${ICON.bulb()} ${state.hintsLeft}` : "🎬 راهنمای رایگان"}</button>
+            <button class="hint-btn" data-action="hint" ${state.status !== "playing" ? "disabled" : ""}>${
+              state.hintsLeft > 0
+                ? `${ICON.bulb()} ${state.hintsLeft}`
+                : state.bonusHints > 0
+                ? `💎 ${state.bonusHints}`
+                : "🎬 راهنمای رایگان"
+            }</button>
           </div>
           <p class="hint-text">${state.revealedHint ? round.hint : ""}</p>
           <div class="answer-slots">${slotsHTML}</div>
@@ -481,6 +552,7 @@
   function render() {
     if (state.view === "menu") renderMenu();
     else if (state.view === "howto") renderHowTo();
+    else if (state.view === "store") renderStore();
     else renderGame();
     saveProgress();
     mountBanners();
@@ -488,7 +560,15 @@
 
   function mountBanners() {
     if (!window.Ads) return;
-    document.querySelectorAll(".ad-slot").forEach((el) => window.Ads.renderBannerInto(el));
+    const slots = document.querySelectorAll(".ad-slot");
+    slots.forEach((el) => {
+      if (state.adsRemoved) {
+        el.style.display = "none";
+      } else {
+        el.style.display = "";
+        window.Ads.renderBannerInto(el);
+      }
+    });
   }
 
   // ---------------------------------------------------------------------
@@ -523,6 +603,10 @@
     if (!tile || tile.used) return;
     tile.used = true;
     state.picked.push(tileId);
+    if (window.FX) {
+      window.FX.playTileClick();
+      window.FX.vibrate("light");
+    }
     checkAnswer();
     render();
   }
@@ -553,6 +637,10 @@
     if (next >= state.sessionWords.length) {
       state.roundIndex = next;
       if (state.score > state.highScore) state.highScore = state.score;
+      if (window.FX) {
+        window.FX.playWin();
+        window.FX.vibrate("heavy");
+      }
       render();
       return;
     }
@@ -566,7 +654,7 @@
       render();
     };
 
-    if (window.Ads && window.Ads.shouldShowInterstitial(next)) {
+    if (!state.adsRemoved && window.Ads && window.Ads.shouldShowInterstitial(next)) {
       window.Ads.showInterstitial(advance);
     } else {
       advance();
@@ -578,29 +666,66 @@
     if (state.hintsLeft > 0) {
       state.hintsLeft -= 1;
       state.revealedHint = true;
+      if (window.FX) window.FX.playHint();
       render();
       return;
     }
-    // بدون راهنمای رایگان مونده — پیشنهاد تبلیغ جایزه‌ای برای یه راهنمای اضافه
+    if (state.bonusHints > 0) {
+      state.bonusHints -= 1;
+      state.revealedHint = true;
+      if (window.FX) window.FX.playHint();
+      render();
+      return;
+    }
+    // بدون راهنمای رایگان یا خریداری‌شده — پیشنهاد تبلیغ جایزه‌ای برای یه راهنمای اضافه
     if (window.Ads) {
       window.Ads.showRewarded(() => {
         state.revealedHint = true;
+        if (window.FX) window.FX.playHint();
         render();
       });
     }
   }
 
+  function handlePurchase(productId) {
+    if (!window.IAP) return;
+    window.IAP.purchase(productId, (product) => {
+      if (product.id === "remove_ads") {
+        state.adsRemoved = true;
+      } else if (product.type === "consumable") {
+        state.bonusHints += product.qty || 0;
+      }
+      render();
+    });
+  }
+
   // ---------------------------------------------------------------------
   // event delegation
   // ---------------------------------------------------------------------
+  const TAP_SOUND_ACTIONS = new Set([
+    "play",
+    "resume",
+    "howto",
+    "store",
+    "back-to-menu",
+    "restart",
+    "next",
+    "buy",
+  ]);
+
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-action]");
     if (!el) return;
     const action = el.getAttribute("data-action");
+    if (window.FX && TAP_SOUND_ACTIONS.has(action)) {
+      window.FX.playButtonTap();
+    }
     switch (action) {
       case "play": startGame(); break;
       case "resume": resumeGame(); break;
       case "howto": state.view = "howto"; render(); break;
+      case "store": state.view = "store"; render(); break;
+      case "buy": handlePurchase(el.getAttribute("data-product-id")); break;
       case "back-to-menu": goToMenu(); break;
       case "pick": pickTile(el.getAttribute("data-tile-id")); break;
       case "undo": undoLast(); break;
@@ -609,6 +734,10 @@
       case "next": nextRound(); break;
       case "restart": startGame(); break;
       case "hint": useHint(); break;
+      case "toggle-sound":
+        if (window.FX) window.FX.toggleMuted();
+        render();
+        break;
       default: break;
     }
   });
