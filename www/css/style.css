@@ -88,6 +88,23 @@ button {
   animation: kjTwinkle 2.6s ease-in-out infinite;
 }
 
+.sound-toggle {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(232,185,75,0.25);
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sound-toggle:active { transform: scale(0.9); }
+
 .medallion-wrap { position: relative; display: flex; flex-direction: column; align-items: center; }
 .medallion-wrap svg.kj-arch {
   animation: kjFadeScale 0.7s cubic-bezier(.2,.8,.2,1) both, kjGlow 3.6s ease-in-out 0.7s infinite;
@@ -380,6 +397,39 @@ button {
   font-weight: 800;
   background: var(--terracotta);
   color: var(--paper);
+}
+
+/* ================= STORE ================= */
+.store-list { display: flex; flex-direction: column; gap: 12px; }
+.store-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--sand);
+}
+.store-item-title { font-weight: 800; font-size: 0.95rem; }
+.store-item-desc { font-size: 0.75rem; opacity: 0.7; margin-top: 2px; }
+.store-buy-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.8rem;
+  background: var(--terracotta);
+  color: var(--paper);
+  white-space: nowrap;
+}
+.store-owned-tag {
+  flex-shrink: 0;
+  display: flex; align-items: center; gap: 4px;
+  font-size: 0.75rem; font-weight: 700;
+  color: var(--green);
+}
+.store-bonus-note {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 0.8rem;
+  opacity: 0.7;
 }
 
 /* ---------- game complete screen ---------- */
