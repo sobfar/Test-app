@@ -1,6 +1,15 @@
 {
-  "appId": "com.shadowdev.tictactoe",
-  "appName": "ایکس او",
+
+  "appId": "ir.vazhebafi.app",
+
+  "appName": "واژه‌بافی",
+
   "webDir": "www",
-  "bundledWebRuntime": false
+
+  "server": {
+
+    "androidScheme": "https"
+
+  }
+
 }
