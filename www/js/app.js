@@ -136,8 +136,12 @@
     }));
   }
 
-  function makeRound(index) {
-    const entry = WORD_BANK[index % WORD_BANK.length];
+  function shuffleWordOrder() {
+    return shuffle(WORD_BANK);
+  }
+
+  function makeRound(index, wordList) {
+    const entry = wordList[index % wordList.length];
     return { word: entry.word, hint: entry.hint, tiles: freshTiles(entry.word) };
   }
 
@@ -196,6 +200,7 @@
   const state = {
     view: "menu", // menu | howto | game
     highScore: 0,
+    sessionWords: WORD_BANK,
     roundIndex: 0,
     round: null,
     picked: [],
@@ -207,6 +212,88 @@
   };
 
   const root = document.getElementById("app");
+  let gameTouchedThisSession = false; // becomes true once startGame/resumeGame runs
+
+  // ---------------------------------------------------------------------
+  // persistence — best score + resumable in-progress game, via localStorage
+  // ---------------------------------------------------------------------
+  const STORAGE_KEY = "vazhebafi_save_v1";
+
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null; // storage unavailable (private mode, etc.) — fail silently
+    }
+  }
+
+  function saveProgress() {
+    try {
+      if (!gameTouchedThisSession) {
+        // Nothing has happened yet this session (e.g. the very first render
+        // on page load) — only persist highScore, leave any existing saved
+        // game slot exactly as it was so "ادامه‌ی بازی" keeps working.
+        const existing = loadSave() || {};
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({ ...existing, highScore: state.highScore })
+        );
+        return;
+      }
+      const hasActiveGame =
+        !!state.round && state.roundIndex < state.sessionWords.length;
+      const payload = {
+        highScore: state.highScore,
+        game: hasActiveGame
+          ? {
+              sessionWords: state.sessionWords,
+              roundIndex: state.roundIndex,
+              round: state.round,
+              picked: state.picked,
+              score: state.score,
+              streak: state.streak,
+              hintsLeft: state.hintsLeft,
+              status: state.status,
+              revealedHint: state.revealedHint,
+            }
+          : null,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    } catch (e) {
+      // storage unavailable — nothing we can do, fail silently
+    }
+  }
+
+  function getResumableGame() {
+    const saved = loadSave();
+    return saved && saved.game ? saved.game : null;
+  }
+
+  function resumeGame() {
+    const g = getResumableGame();
+    if (!g) return;
+    gameTouchedThisSession = true;
+    state.view = "game";
+    state.sessionWords = g.sessionWords;
+    state.roundIndex = g.roundIndex;
+    state.round = g.round;
+    state.picked = g.picked;
+    state.score = g.score;
+    state.streak = g.streak;
+    state.hintsLeft = g.hintsLeft;
+    state.status = g.status;
+    state.revealedHint = g.revealedHint;
+    render();
+  }
+
+  // restore best score on startup
+  (function initFromStorage() {
+    const saved = loadSave();
+    if (saved && typeof saved.highScore === "number") {
+      state.highScore = saved.highScore;
+    }
+  })();
 
   function currentWord() {
     return state.picked
@@ -228,10 +315,34 @@
     }
   }
 
+  function ambientOrbsHTML() {
+    return `
+      <div class="ambient-bg">
+        <div class="ambient-orb" style="width:180px;height:180px;top:8%;left:-6%;background:var(--turquoise);animation-delay:0s;"></div>
+        <div class="ambient-orb" style="width:140px;height:140px;bottom:10%;right:-8%;background:var(--gold);animation-delay:4s;"></div>
+        <div class="ambient-orb" style="width:110px;height:110px;top:55%;left:70%;background:var(--terracotta);animation-delay:8s;"></div>
+      </div>
+    `;
+  }
+
+  function cardMotifHTML() {
+    return `
+      <div class="card-motif">
+        <svg width="90" height="120" viewBox="0 0 90 120" style="top:-10px;right:-16px;">
+          <path d="M45,4 C68,4 78,34 62,58 C54,70 48,80 45,92 C42,80 36,70 28,58 C12,34 22,4 45,4 Z" fill="none" stroke="var(--ink)" stroke-width="3"/>
+        </svg>
+        <svg width="70" height="95" viewBox="0 0 70 95" style="bottom:-14px;left:-12px;animation-delay:6s;">
+          <path d="M35,3 C53,3 61,27 48,46 C42,55 38,63 35,72 C32,63 28,55 22,46 C9,27 17,3 35,3 Z" fill="none" stroke="var(--ink)" stroke-width="2.5"/>
+        </svg>
+      </div>
+    `;
+  }
+
   // ---------------------------------------------------------------------
   // render: MENU
   // ---------------------------------------------------------------------
   function renderMenu() {
+    const resumable = getResumableGame();
     root.innerHTML = `
       <div class="menu-scene">
         ${starFieldHTML()}
@@ -243,7 +354,12 @@
         ${state.highScore > 0 ? `
           <div class="highscore-badge">${ICON.star("var(--turquoise)")} بهترین امتیاز: ${state.highScore}</div>
         ` : ""}
-        <button class="btn-primary" data-action="play">${ICON.play()} شروع بازی</button>
+        ${resumable ? `
+          <button class="btn-primary" data-action="resume">${ICON.play()} ادامه‌ی بازی (مرحله ${resumable.roundIndex + 1})</button>
+          <button class="btn-secondary" data-action="play">شروع بازی جدید</button>
+        ` : `
+          <button class="btn-primary" data-action="play">${ICON.play()} شروع بازی</button>
+        `}
         <button class="btn-secondary" data-action="howto">${ICON.help()} راهنمای بازی</button>
         <div class="menu-footer">
           ${svgBotehBand()}
@@ -266,7 +382,9 @@
     ];
     root.innerHTML = `
       <div class="screen-center">
+        ${ambientOrbsHTML()}
         <div class="card">
+          ${cardMotifHTML()}
           <button class="back-link" data-action="back-to-menu">${ICON.back()} بازگشت</button>
           <h2 class="howto-title">چگونه بازی کنیم؟</h2>
           <ol class="howto-list">
@@ -282,7 +400,7 @@
   // render: GAME
   // ---------------------------------------------------------------------
   function renderGame() {
-    const isComplete = state.roundIndex >= WORD_BANK.length;
+    const isComplete = state.roundIndex >= state.sessionWords.length;
 
     if (isComplete) {
       root.innerHTML = `
@@ -291,7 +409,7 @@
             <div class="complete-wrap">
               <div style="color:var(--terracotta)">${ICON.trophy()}</div>
               <h2 class="complete-title">تبریک! بازی تمام شد</h2>
-              <p class="complete-sub">${WORD_BANK.length} کلمه را حل کردی</p>
+              <p class="complete-sub">${state.sessionWords.length} کلمه را حل کردی</p>
               <div class="complete-score">${ICON.star("var(--terracotta)")} ${state.score} امتیاز</div>
               <div class="complete-actions">
                 <button class="btn-flex btn-next" data-action="restart">شروع دوباره</button>
@@ -339,19 +457,21 @@
 
     root.innerHTML = `
       <div class="screen-center">
+        ${ambientOrbsHTML()}
         <div class="game-card">
+          ${cardMotifHTML()}
           <button class="back-link" data-action="back-to-menu" style="opacity:.6">${ICON.back()} منو</button>
           <div class="game-topbar">
             <div class="stat-score">${ICON.star("var(--terracotta)")} ${state.score}</div>
             <div class="stat-streak">${ICON.flame(state.streak > 0 ? "var(--red)" : "none")} ${state.streak}</div>
-            <button class="hint-btn" data-action="hint" ${state.hintsLeft <= 0 || state.status !== "playing" ? "disabled" : ""}>${ICON.bulb()} ${state.hintsLeft}</button>
+            <button class="hint-btn" data-action="hint" ${state.status !== "playing" ? "disabled" : ""}>${state.hintsLeft > 0 ? `${ICON.bulb()} ${state.hintsLeft}` : "🎬 راهنمای رایگان"}</button>
           </div>
           <p class="hint-text">${state.revealedHint ? round.hint : ""}</p>
           <div class="answer-slots">${slotsHTML}</div>
           ${statusHTML}
           <div class="tiles-row">${tilesHTML}</div>
           <div class="action-row">${actionHTML}</div>
-          <p class="progress-text">مرحله ${state.roundIndex + 1} از ${WORD_BANK.length}</p>
+          <p class="progress-text">مرحله ${state.roundIndex + 1} از ${state.sessionWords.length}</p>
           <div class="ad-slot">جای تبلیغ بنری (AdMob / Bazaar Ads)</div>
         </div>
       </div>
@@ -362,15 +482,24 @@
     if (state.view === "menu") renderMenu();
     else if (state.view === "howto") renderHowTo();
     else renderGame();
+    saveProgress();
+    mountBanners();
+  }
+
+  function mountBanners() {
+    if (!window.Ads) return;
+    document.querySelectorAll(".ad-slot").forEach((el) => window.Ads.renderBannerInto(el));
   }
 
   // ---------------------------------------------------------------------
   // actions
   // ---------------------------------------------------------------------
   function startGame() {
+    gameTouchedThisSession = true;
     state.view = "game";
+    state.sessionWords = shuffleWordOrder();
     state.roundIndex = 0;
-    state.round = makeRound(0);
+    state.round = makeRound(0, state.sessionWords);
     state.picked = [];
     state.score = 0;
     state.streak = 0;
@@ -421,24 +550,44 @@
 
   function nextRound() {
     const next = state.roundIndex + 1;
-    state.roundIndex = next;
-    if (next >= WORD_BANK.length) {
+    if (next >= state.sessionWords.length) {
+      state.roundIndex = next;
       if (state.score > state.highScore) state.highScore = state.score;
       render();
       return;
     }
-    state.round = makeRound(next);
-    state.picked = [];
-    state.status = "playing";
-    state.revealedHint = false;
-    render();
+
+    const advance = () => {
+      state.roundIndex = next;
+      state.round = makeRound(next, state.sessionWords);
+      state.picked = [];
+      state.status = "playing";
+      state.revealedHint = false;
+      render();
+    };
+
+    if (window.Ads && window.Ads.shouldShowInterstitial(next)) {
+      window.Ads.showInterstitial(advance);
+    } else {
+      advance();
+    }
   }
 
   function useHint() {
-    if (state.hintsLeft <= 0 || state.status !== "playing") return;
-    state.hintsLeft -= 1;
-    state.revealedHint = true;
-    render();
+    if (state.status !== "playing") return;
+    if (state.hintsLeft > 0) {
+      state.hintsLeft -= 1;
+      state.revealedHint = true;
+      render();
+      return;
+    }
+    // بدون راهنمای رایگان مونده — پیشنهاد تبلیغ جایزه‌ای برای یه راهنمای اضافه
+    if (window.Ads) {
+      window.Ads.showRewarded(() => {
+        state.revealedHint = true;
+        render();
+      });
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -450,6 +599,7 @@
     const action = el.getAttribute("data-action");
     switch (action) {
       case "play": startGame(); break;
+      case "resume": resumeGame(); break;
       case "howto": state.view = "howto"; render(); break;
       case "back-to-menu": goToMenu(); break;
       case "pick": pickTile(el.getAttribute("data-tile-id")); break;
@@ -463,6 +613,6 @@
     }
   });
 
+  if (window.Ads) window.Ads.initAds();
   render();
 })();
-
