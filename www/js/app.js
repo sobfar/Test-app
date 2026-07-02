@@ -323,11 +323,23 @@
 
     // Large faint Persian letters that slowly fade in and out ("محو و نیمه‌محو"),
     // echoing the ghost-letter texture scattered behind the reference logo.
+    // Most sit beside the medallion (left/right bands, upper half); a few
+    // are scattered lower down for overall texture.
     const glyphs = ["د", "س", "ق", "و", "ت", "ن", "م", "ح", "ر", "ل", "ک", "ژ"];
     const letterColors = ["rgba(232,185,75,0.4)", "rgba(150,110,220,0.4)", "rgba(90,150,230,0.4)"];
     let letters = "";
-    for (let i = 0; i < 15; i++) {
-      const top = rnd() * 96, left = rnd() * 92, size = 34 + rnd() * 30;
+    for (let i = 0; i < 22; i++) {
+      let top, left;
+      if (i < 16) {
+        // beside the logo: left band or right band, upper half of the screen
+        const rightSide = rnd() > 0.5;
+        left = rightSide ? 78 + rnd() * 20 : rnd() * 20;
+        top = 4 + rnd() * 46;
+      } else {
+        top = rnd() * 96;
+        left = rnd() * 92;
+      }
+      const size = 34 + rnd() * 30;
       const dur = 5 + rnd() * 5, delay = rnd() * 5;
       const ch = glyphs[Math.floor(rnd() * glyphs.length)];
       const color = letterColors[Math.floor(rnd() * letterColors.length)];
@@ -341,13 +353,18 @@
       { top: 14, left: 4, w: 100, rot: 24 },
       { top: 78, left: 72, w: 150, rot: 10 },
       { top: 88, left: 6, w: 110, rot: -12 },
+      { top: 34, left: 78, w: 90, rot: 30 },
+      { top: 46, left: 2, w: 95, rot: -26 },
+      { top: 60, left: 60, w: 120, rot: -6 },
+      { top: 22, left: 40, w: 85, rot: 14 },
+      { top: 68, left: 24, w: 100, rot: 20 },
     ];
     let goldLines = "";
     lines.forEach((l, i) => {
       const dur = 4.5 + rnd() * 3.5, delay = rnd() * 4;
       goldLines += `
         <svg class="bg-goldline" style="top:${l.top}%;left:${l.left}%;width:${l.w}px;transform:rotate(${l.rot}deg);animation-duration:${dur}s;animation-delay:${delay}s;" viewBox="0 0 120 40">
-          <path d="M2 20c15-18 30-18 40-2s28 20 40 4 25-16 36-2" fill="none" stroke="var(--gold)" stroke-width="1.4" stroke-linecap="round"/>
+          <path d="M2 20c15-18 30-18 40-2s28 20 40 4 25-16 36-2" fill="none" stroke="var(--gold)" stroke-width="0.7" stroke-linecap="round"/>
         </svg>
       `;
     });
@@ -372,9 +389,11 @@
     hintsLeft: 3,
     status: "playing", // playing | correct | wrong
     revealedHint: false,
+    settingsOpen: false,
   };
 
   const root = document.getElementById("app");
+  const modalRoot = document.getElementById("modal-root");
   let gameTouchedThisSession = false; // becomes true once startGame/resumeGame runs
 
   // ---------------------------------------------------------------------
@@ -533,7 +552,6 @@
   // same "mock now, wire up later" pattern already used in ads.js/iap.js.
   function renderMenu() {
     const resumable = getResumableGame();
-    const muted = window.FX ? window.FX.isMuted() : false;
     const currentStage = resumable ? resumable.roundIndex + 1 : 0;
 
     root.innerHTML = `
@@ -554,8 +572,7 @@
           <div class="topbar-right">
             <div class="pill-stat coin-pill"><img class="pill-icon-img" src="assets/ic-coin.png" alt="">۰<span class="pill-add">+</span></div>
             <div class="pill-stat heart-pill"><img class="pill-icon-img" src="assets/ic-heart.png" alt="">∞<span class="pill-add">+</span></div>
-            <button class="icon-btn-round" data-action="toggle-sound" aria-label="صدا">${muted ? "🔇" : "🔊"}</button>
-            <button class="icon-btn-round" aria-label="تنظیمات"><img class="pill-icon-img" src="assets/ic-gear.png" alt=""></button>
+            <button class="icon-btn-round" data-action="settings-open" aria-label="تنظیمات"><img class="pill-icon-img" src="assets/ic-gear.png" alt=""></button>
           </div>
         </div>
 
@@ -777,11 +794,44 @@
     `;
   }
 
+  function renderModal() {
+    if (!state.settingsOpen) {
+      modalRoot.innerHTML = "";
+      return;
+    }
+    const muted = window.FX ? window.FX.isMuted() : false;
+    const vol = window.FX ? Math.round(window.FX.getVolume() * 100) : 80;
+    modalRoot.innerHTML = `
+      <div class="modal-backdrop" data-action="settings-close">
+        <div class="modal-card" data-action="noop">
+          <div class="modal-header">
+            <span class="modal-title">${ICON.gear()} تنظیمات</span>
+            <button class="modal-close" data-action="settings-close" aria-label="بستن">✕</button>
+          </div>
+
+          <div class="modal-row">
+            <span class="modal-row-label">🔊 صدای جلوه‌های بازی</span>
+            <button class="switch ${muted ? "" : "on"}" data-action="settings-mute-toggle" role="switch" aria-checked="${!muted}">
+              <span class="switch-knob"></span>
+            </button>
+          </div>
+
+          <div class="modal-row modal-row-slider${muted ? " is-disabled" : ""}">
+            <span class="modal-row-label">میزان صدا</span>
+            <input type="range" id="settings-volume-range" min="0" max="100" value="${vol}" ${muted ? "disabled" : ""} />
+            <span class="modal-vol-num">${vol}٪</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function render() {
     if (state.view === "menu") renderMenu();
     else if (state.view === "howto") renderHowTo();
     else if (state.view === "store") renderStore();
     else renderGame();
+    renderModal();
     saveProgress();
     mountBanners();
   }
@@ -966,7 +1016,36 @@
         if (window.FX) window.FX.toggleMuted();
         render();
         break;
+      case "settings-open":
+        state.settingsOpen = true;
+        renderModal();
+        break;
+      case "settings-close":
+        state.settingsOpen = false;
+        renderModal();
+        break;
+      case "settings-mute-toggle":
+        if (window.FX) window.FX.toggleMuted();
+        render();
+        break;
+      case "noop":
+        break;
       default: break;
+    }
+  });
+
+  document.addEventListener("input", (e) => {
+    if (e.target && e.target.id === "settings-volume-range") {
+      const val = parseInt(e.target.value, 10) / 100;
+      if (window.FX) window.FX.setVolume(val);
+      const numEl = document.querySelector(".modal-vol-num");
+      if (numEl) numEl.textContent = e.target.value + "٪";
+    }
+  });
+
+  document.addEventListener("change", (e) => {
+    if (e.target && e.target.id === "settings-volume-range" && window.FX) {
+      window.FX.playTileClick();
     }
   });
 
