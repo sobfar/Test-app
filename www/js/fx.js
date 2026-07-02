@@ -19,7 +19,10 @@
   "use strict";
 
   const MUTE_KEY = "vazhebafi_sound_muted";
+  const VOLUME_KEY = "vazhebafi_sound_volume";
   let muted = localStorage.getItem(MUTE_KEY) === "1";
+  let volume = parseFloat(localStorage.getItem(VOLUME_KEY));
+  if (isNaN(volume) || volume < 0 || volume > 1) volume = 0.8;
 
   let audioCtx = null;
   function getCtx() {
@@ -38,7 +41,7 @@
   // تولید یه تن ساده (sine/triangle) با envelope کوتاه، بدون نیاز به فایل
   // ---------------------------------------------------------------------
   function tone({ freq, duration = 0.12, type = "sine", startTime = 0, gain = 0.18 }) {
-    if (muted) return;
+    if (muted || volume <= 0) return;
     const ctx = getCtx();
     if (!ctx) return;
     const t0 = ctx.currentTime + startTime;
@@ -46,8 +49,9 @@
     const amp = ctx.createGain();
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t0);
+    const g = gain * volume;
     amp.gain.setValueAtTime(0, t0);
-    amp.gain.linearRampToValueAtTime(gain, t0 + 0.012);
+    amp.gain.linearRampToValueAtTime(g, t0 + 0.012);
     amp.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
     osc.connect(amp);
     amp.connect(ctx.destination);
@@ -136,6 +140,19 @@
     return muted;
   }
 
+  function getVolume() {
+    return volume;
+  }
+
+  function setVolume(value) {
+    volume = Math.max(0, Math.min(1, value));
+    try {
+      localStorage.setItem(VOLUME_KEY, String(volume));
+    } catch (e) {
+      /* localStorage در دسترس نیست — بی‌خطر رد می‌شیم */
+    }
+  }
+
   global.FX = {
     playTileClick,
     playButtonTap,
@@ -147,5 +164,7 @@
     isMuted,
     setMuted,
     toggleMuted,
+    getVolume,
+    setVolume,
   };
 })(window);
