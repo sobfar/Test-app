@@ -219,6 +219,13 @@
     }));
   }
 
+  // Re-shuffles the on-screen letter tile order (does not change which
+  // tiles are already picked/used). Purely a convenience/UX action.
+  function shuffleTiles() {
+    if (!state.round || state.status !== "playing") return;
+    state.round.tiles = shuffle(state.round.tiles);
+  }
+
   function shuffleWordOrder() {
     return shuffle(WORD_BANK);
   }
@@ -634,7 +641,7 @@
         </div>
 
         <div class="menu-footer">
-          ${svgBotehBand()}
+          <img class="menu-divider-img" src="assets/divider-gold.png" alt="">
         </div>
       </div>
     `;
@@ -645,23 +652,58 @@
   // ---------------------------------------------------------------------
   function renderHowTo() {
     const steps = [
-      "یک راهنما برای کلمه‌ی مخفی نشان داده می‌شود.",
-      "با لمس حروف به‌ترتیب، کلمه را بساز.",
-      "برای حذف آخرین حرف، روی آن در ردیف بالا بزن.",
-      "اگر گیر کردی، از چراغ راهنما استفاده کن (تعداد محدود).",
-      "با هر پاسخ درست امتیاز و استریک می‌گیری.",
+      {
+        title: "کلمه پیدا کن",
+        desc: "با حروف داده شده، کلمه‌ی مخفی مرحله را پیدا کنید.",
+        visual: `<div class="howto-tiles"><div class="slot-demo"></div><div class="slot-demo"></div><div class="slot-demo"></div></div>`,
+      },
+      {
+        title: "حروف را بکش",
+        desc: "با لمس و کشیدن حروف، کلمه را بسازید.",
+        visual: `<div class="howto-tiles"><div class="tile-demo">د</div><div class="tile-demo">ر</div><div class="tile-demo">د</div><div class="tile-demo">ب</div><span class="howto-cursor">👆</span></div>`,
+      },
+      {
+        title: "کلمه صحیح",
+        desc: "با ساختن کلمه‌ی صحیح، کلمه در جای خالی قرار می‌گیرد و به مرحله‌ی بعد می‌روید.",
+        visual: `<div class="howto-tiles"><div class="tile-demo tile-demo-correct">ب</div><div class="tile-demo tile-demo-correct">ر</div><div class="tile-demo tile-demo-correct">د</div><span class="howto-sparkle s1">✨</span><span class="howto-sparkle s2">✨</span></div>`,
+      },
+      {
+        title: "حذف حروف",
+        desc: "برای پاک کردن آخرین حرف، روی آیکون حذف بزنید.",
+        visual: `<div class="howto-tiles"><div class="tile-demo">د</div><div class="tile-demo">ر</div><div class="tile-demo">ب</div><span class="howto-trash">🗑️</span></div>`,
+      },
+      {
+        title: "راهنما",
+        desc: "اگر گیر کردید، از راهنما استفاده کنید. هر مرحله تعداد مشخصی راهنما دارید.",
+        visual: `<div class="howto-hint-circle">💡<span class="howto-hint-badge">${state.hintsLeft}</span></div>`,
+      },
     ];
+
     root.innerHTML = `
-      <div class="screen-center">
-        ${ambientOrbsHTML()}
-        <div class="card">
-          ${cardMotifHTML()}
-          <button class="back-link" data-action="back-to-menu">${ICON.back()} بازگشت</button>
-          <h2 class="howto-title">چگونه بازی کنیم؟</h2>
-          <ol class="howto-list">
-            ${steps.map((s, i) => `<li><span class="howto-num">${i + 1}</span><span>${s}</span></li>`).join("")}
-          </ol>
-          <button class="btn-ok" data-action="back-to-menu">باشه، فهمیدم</button>
+      <div class="howto-scene">
+        ${starFieldHTML()}
+        <div class="howto-card-v2">
+          <button class="modal-close howto-close" data-action="back-to-menu" aria-label="بستن">✕</button>
+          <h2 class="howto-title-v2">🌿 راهنمای بازی 🌿</h2>
+          <p class="howto-subtitle-v2">••• چگونه بازی کنیم؟ •••</p>
+          <div class="howto-steps">
+            ${steps
+              .map(
+                (s, i) => `
+                  <div class="howto-row">
+                    <div class="howto-visual">${s.visual}</div>
+                    <div class="howto-info">
+                      <div class="howto-row-title">${s.title}</div>
+                      <div class="howto-row-desc">${s.desc}</div>
+                    </div>
+                    <div class="howto-num-badge">${i + 1}</div>
+                  </div>
+                `
+              )
+              .join("")}
+          </div>
+          <div class="howto-tip">💡 کلمات ممکن است از راست به چپ یا چپ به راست باشند.</div>
+          <button class="btn-ok-v2" data-action="back-to-menu">باشه، فهمیدم</button>
         </div>
       </div>
     `;
@@ -671,37 +713,108 @@
   // render: STORE
   // ---------------------------------------------------------------------
   function renderStore() {
-    const products = window.IAP ? window.IAP.listProducts() : [];
-    root.innerHTML = `
-      <div class="screen-center">
-        ${ambientOrbsHTML()}
-        <div class="card">
-          ${cardMotifHTML()}
-          <button class="back-link" data-action="back-to-menu">${ICON.back()} بازگشت</button>
-          <h2 class="howto-title">فروشگاه</h2>
-          <p style="font-size:0.8rem; opacity:0.6; margin:-8px 0 16px;">نسخه‌ی نمونه — بدون درگاه پرداخت واقعی</p>
-          <div class="store-list">
-            ${products
-              .map((p) => {
-                const owned = p.id === "remove_ads" && state.adsRemoved;
-                return `
-                  <div class="store-item">
-                    <div class="store-item-info">
-                      <div class="store-item-title">${p.title}</div>
-                      <div class="store-item-desc">${p.desc}</div>
-                    </div>
-                    ${
-                      owned
-                        ? `<span class="store-owned-tag">${ICON.check()} خریداری‌شده</span>`
-                        : `<button class="store-buy-btn" data-action="buy" data-product-id="${p.id}">${p.price}</button>`
-                    }
-                  </div>
-                `;
-              })
-              .join("")}
-          </div>
-          ${state.bonusHints > 0 ? `<p class="store-bonus-note">💎 ${state.bonusHints} راهنمای خریداری‌شده در انتظار استفاده</p>` : ""}
+    const P = (window.IAP && window.IAP.PRODUCTS) || {};
+    const removeAds = P.remove_ads || {};
+    const hint5 = P.hint_pack_5 || {};
+    const hint20 = P.hint_pack_20 || {};
+    const hint100 = P.hint_pack_100 || {};
+    const bundle = P.bundle_gold || {};
+    const adsOwned = state.adsRemoved;
+
+    const priceBtn = (p) => `
+      <button class="price-pill-btn" data-action="buy" data-product-id="${p.id}">
+        <img class="price-pill-icon" src="assets/ic-coin.png" alt="">${p.price}
+      </button>
+    `;
+
+    const hintRow = (p, iconSrc) => `
+      <div class="store-hint-row">
+        <img class="hint-row-icon" src="${iconSrc}" alt="">
+        <div class="hint-row-info">
+          <div class="hint-row-title">${p.title}</div>
+          <div class="hint-row-desc">${p.desc}</div>
         </div>
+        <div class="hint-row-price">
+          <div class="discount-badges">
+            <span class="discount-badge">${p.discount}</span>
+            <span class="price-strike">${p.originalPrice}</span>
+          </div>
+          ${priceBtn(p)}
+        </div>
+      </div>
+    `;
+
+    root.innerHTML = `
+      <div class="store-scene">
+        ${starFieldHTML()}
+
+        <div class="store-topbar">
+          <button class="round-icon-btn" data-action="back-to-menu" aria-label="بازگشت"><img src="assets/ic-store-back.png" alt=""></button>
+          <div class="store-title">🌿 فروشگاه 🌿</div>
+          <div class="pill-stat coin-pill"><img class="pill-icon-img" src="assets/ic-coin.png" alt="">۳,۵۴۰<span class="pill-add">+</span></div>
+        </div>
+        <p class="store-subtitle">هر خرید، حمایت از ماست ❤️</p>
+
+        <div class="store-hero-card">
+          <span class="store-ribbon">${removeAds.badge || ""}</span>
+          <div class="store-hero-body">
+            <img class="store-hero-icon" src="assets/ic-noads.png" alt="">
+            <div class="store-hero-info">
+              <div class="store-hero-title">${removeAds.title}</div>
+              <div class="store-hero-desc">${removeAds.desc}</div>
+              <ul class="store-feature-list">
+                <li>${ICON.check()} حذف دائمی همه‌ی تبلیغات</li>
+                <li>📴 بدون نیاز به اینترنت</li>
+                <li>📱 برای همیشه و روی همه دستگاه‌ها</li>
+              </ul>
+            </div>
+          </div>
+          <div class="store-hero-buy">
+            ${
+              adsOwned
+                ? `<span class="store-owned-tag">${ICON.check()} خریداری‌شده</span>`
+                : `
+                  <button class="store-buy-big" data-action="buy" data-product-id="remove_ads">
+                    <img src="assets/ic-bag.png" alt="">خرید
+                  </button>
+                  <div class="price-pill-static">${removeAds.price}</div>
+                `
+            }
+          </div>
+        </div>
+
+        ${hintRow(hint5, "assets/ic-bulb5.png")}
+        ${hintRow(hint20, "assets/ic-bulb20.png")}
+        ${hintRow(hint100, "assets/ic-chest100.png")}
+
+        <div class="store-bundle-card">
+          <span class="store-ribbon store-ribbon-purple">${bundle.badge || ""}</span>
+          <div class="bundle-percent-badge">${bundle.discount}</div>
+          <div class="store-bundle-body">
+            <img class="store-bundle-icon" src="assets/ic-bundle.png" alt="">
+            <div class="store-bundle-info">
+              <div class="store-bundle-title">👑 ${bundle.title}</div>
+              <div class="store-bundle-desc">${bundle.desc}</div>
+              <div class="bundle-features">
+                <div class="bundle-feature"><span class="bundle-feature-emoji">🚫📶</span><span>حذف تبلیغات همیشگی</span></div>
+                <div class="bundle-feature"><span class="bundle-feature-emoji">💡</span><span>۵۰ راهنمای اضافه</span></div>
+                <div class="bundle-feature"><span class="bundle-feature-emoji">🏅</span><span>نشان ویژه کنار اسم شما</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="store-bundle-buy">
+            <span class="price-strike">${bundle.originalPrice}</span>
+            ${priceBtn(bundle)}
+          </div>
+        </div>
+
+        <div class="store-trust-row">
+          <div class="trust-item">🛡️<span>پرداخت امن<br>با تمامی کارت‌های بانکی</span></div>
+          <div class="trust-item">⏳<span>بازگشت وجه<br>تا ۲۴ ساعت</span></div>
+          <div class="trust-item">🎧<span>پشتیبانی ۲۴ ساعته<br>همیشه در کنار شما</span></div>
+        </div>
+
+        ${state.bonusHints > 0 ? `<p class="store-bonus-note">💎 ${state.bonusHints} راهنمای خریداری‌شده در انتظار استفاده</p>` : ""}
       </div>
     `;
   }
@@ -756,40 +869,115 @@
       statusHTML = `<div class="status-banner status-wrong">اشتباس، دوباره تلاش کن</div>`;
     }
 
-    let actionHTML = "";
+    const hintLabel =
+      state.hintsLeft > 0
+        ? `${state.hintsLeft}`
+        : state.bonusHints > 0
+        ? `💎${state.bonusHints}`
+        : "";
+
+    let actionRowHTML = "";
     if (state.status === "wrong") {
-      actionHTML = `<button class="btn-flex btn-retry" data-action="retry">${ICON.undo()} تلاش دوباره</button>`;
+      actionRowHTML = `<button class="btn-clear-v2 btn-retry-v2" data-action="retry">${ICON.undo()} تلاش دوباره</button>`;
     } else if (state.status === "correct") {
-      actionHTML = `<button class="btn-flex btn-next" data-action="next">مرحله بعد ←</button>`;
+      actionRowHTML = `<button class="btn-hint-v2 btn-next-v2" data-action="next">مرحله بعد ←</button>`;
     } else {
-      actionHTML = `<button class="btn-flex btn-clear" data-action="clear" ${state.picked.length === 0 ? "disabled" : ""}>${ICON.undo()} پاک کردن</button>`;
+      actionRowHTML = `
+        <button class="btn-clear-v2" data-action="clear" ${state.picked.length === 0 ? "disabled" : ""}>
+          <img src="assets/ic-undo.png" alt="">حذف
+        </button>
+        <button class="btn-hint-v2" data-action="hint" ${state.status !== "playing" ? "disabled" : ""}>
+          <img src="assets/ic-bulb.png" alt="">راهنما
+        </button>
+      `;
     }
 
+    const stageNum = state.roundIndex + 1;
+    const wordLen = round.word.length;
+    // Rough, real (not decorative) difficulty read-out based on the actual
+    // word length of this round.
+    const difficulty = wordLen <= 3 ? "آسان" : wordLen <= 5 ? "متوسط" : "سخت";
+    // Position within the current 5-round reward cycle — reused for both
+    // the star track and the promo banner so the two stay consistent.
+    const cyclePos = (state.roundIndex % 5) + 1;
+
     root.innerHTML = `
-      <div class="screen-center">
-        ${ambientOrbsHTML()}
+      <div class="game-scene">
+        ${starFieldHTML()}
+
+        <div class="game-topbar-v2">
+          <button class="round-icon-btn" data-action="back-to-menu" aria-label="بازگشت به منو"><img src="assets/ic-pause.png" alt=""></button>
+          <div class="pill-stat hint-pill-top"><img class="pill-icon-img" src="assets/ic-bulb.png" alt="">${state.hintsLeft}</div>
+          <div class="stage-badge">
+            <div class="stage-badge-title">مرحله ${stageNum}</div>
+            <div class="stage-badge-sub">${difficulty}</div>
+          </div>
+          <div class="pill-stat coin-pill"><img class="pill-icon-img" src="assets/ic-coin2.png" alt="">۳,۵۴۰</div>
+          <button class="round-icon-btn" data-action="store" aria-label="فروشگاه"><img src="assets/ic-shop.png" alt=""></button>
+        </div>
+
+        <div class="star-progress-row">
+          <div class="star-progress-track">
+            <div class="star-progress-fill" style="width:${((cyclePos - 1) / 4) * 100}%"></div>
+            <div class="star-progress-dots">
+              ${[1, 2, 3, 4].map((n) => `<span class="star-dot ${n <= cyclePos ? "on" : ""}">★</span>`).join("")}
+            </div>
+          </div>
+          <img class="star-progress-gift" src="assets/ic-gift.png" alt="">
+        </div>
+
         <div class="game-card">
           ${cardMotifHTML()}
-          <button class="back-link" data-action="back-to-menu" style="opacity:.6">${ICON.back()} منو</button>
-          <div class="game-topbar">
-            <div class="stat-score">${ICON.star("var(--terracotta)")} ${state.score}</div>
-            <div class="stat-streak">${ICON.flame(state.streak > 0 ? "var(--red)" : "none")} ${state.streak}</div>
-            <button class="hint-btn" data-action="hint" ${state.status !== "playing" ? "disabled" : ""}>${
-              state.hintsLeft > 0
-                ? `${ICON.bulb()} ${state.hintsLeft}`
-                : state.bonusHints > 0
-                ? `💎 ${state.bonusHints}`
-                : "🎬 راهنمای رایگان"
-            }</button>
+          <div class="card-top-row">
+            <div class="card-hint-pill"><img src="assets/ic-bulb.png" alt="">${state.hintsLeft}</div>
+            <div class="card-mystery">${wordLen}<span class="mystery-q">؟</span></div>
+            <div class="card-score">امتیاز<span>${ICON.star("var(--gold)")} ${state.score}</span></div>
           </div>
-          <p class="hint-text">${state.revealedHint ? round.hint : ""}</p>
           <div class="answer-slots">${slotsHTML}</div>
           ${statusHTML}
+          <p class="hint-text">${state.revealedHint ? round.hint : "حروف را بچین، کلمه‌ی فارسی بساز!"}</p>
           <div class="tiles-row">${tilesHTML}</div>
-          <div class="action-row">${actionHTML}</div>
-          <p class="progress-text">مرحله ${state.roundIndex + 1} از ${state.sessionWords.length}</p>
-          <div class="ad-slot">جای تبلیغ بنری (AdMob / Bazaar Ads)</div>
+          <div class="action-row-v2">${actionRowHTML}</div>
         </div>
+
+        <div class="promo-banner">
+          <img class="promo-gift-img" src="assets/ic-gift.png" alt="">
+          <div class="promo-text">
+            <div class="promo-line1">کلمه‌ها رو پیدا کن و جایزه بگیر!</div>
+            <div class="promo-line2">بعد از هر ۵ مرحله یک جایزه داری</div>
+          </div>
+          <div class="promo-count">
+            <span class="promo-count-num">${cyclePos}/۵</span>
+            <div class="promo-count-bar"><div class="promo-count-fill" style="width:${(cyclePos / 5) * 100}%"></div></div>
+          </div>
+        </div>
+
+        <div class="bottom-nav-v2">
+          <button class="nav-icon-btn" data-action="back-to-menu">
+            <img src="assets/ic-nav-back.png" alt="">
+            <span class="nav-icon-label">بازگشت</span>
+          </button>
+          <button class="nav-icon-btn">
+            <img src="assets/ic-nav-found.png" alt="">
+            <span class="nav-badge">${state.roundIndex}</span>
+            <span class="nav-icon-label">کلمات پیدا شده</span>
+          </button>
+          <button class="nav-icon-btn nav-icon-btn-active" data-action="hint" ${state.status !== "playing" ? "disabled" : ""}>
+            <img src="assets/ic-nav-hint.png" alt="">
+            ${hintLabel ? `<span class="nav-badge">${hintLabel}</span>` : ""}
+            <span class="nav-icon-label">راهنمای رایگان</span>
+          </button>
+          <button class="nav-icon-btn" data-action="shuffle">
+            <img src="assets/ic-nav-shuffle.png" alt="">
+            <span class="nav-icon-label">جابه‌جایی حروف</span>
+          </button>
+          <button class="nav-icon-btn" data-action="settings-open">
+            <img src="assets/ic-nav-settings.png" alt="">
+            <span class="nav-icon-label">تنظیمات</span>
+          </button>
+        </div>
+
+        <div class="ad-slot">جای تبلیغ بنری (AdMob / Bazaar Ads)</div>
       </div>
     `;
   }
@@ -831,6 +1019,7 @@
     else if (state.view === "howto") renderHowTo();
     else if (state.view === "store") renderStore();
     else renderGame();
+    document.body.classList.toggle("no-scroll", state.view === "menu");
     renderModal();
     saveProgress();
     mountBanners();
@@ -970,6 +1159,9 @@
     window.IAP.purchase(productId, (product) => {
       if (product.id === "remove_ads") {
         state.adsRemoved = true;
+      } else if (product.id === "bundle_gold") {
+        state.adsRemoved = true;
+        state.bonusHints += product.qty || 0;
       } else if (product.type === "consumable") {
         state.bonusHints += product.qty || 0;
       }
@@ -989,6 +1181,7 @@
     "restart",
     "next",
     "buy",
+    "shuffle",
   ]);
 
   document.addEventListener("click", (e) => {
@@ -1012,6 +1205,7 @@
       case "next": nextRound(); break;
       case "restart": startGame(); break;
       case "hint": useHint(); break;
+      case "shuffle": shuffleTiles(); render(); break;
       case "toggle-sound":
         if (window.FX) window.FX.toggleMuted();
         render();
