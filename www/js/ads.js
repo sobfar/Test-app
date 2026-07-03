@@ -138,4 +138,3 @@
     showRewarded,
   };
 })(window);
-
