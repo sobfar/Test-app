@@ -1,5 +1,5 @@
 @echo off
-title Spammer (7 + Left Click)
+title Spammer Controller
 set "running=0"
 
 :menu
@@ -11,6 +11,8 @@ if %running%==0 ( echo Status: [ Stopped ] ) else ( echo Status: [ Running ] )
 echo.
 echo Press [ 1 ] to Start / Stop Spam
 echo Press [ Q ] to Quit
+echo.
+echo [!!!] Press [ 1 ] in THIS BLACK WINDOW to stop!
 echo.
 
 :waitkey
@@ -30,12 +32,12 @@ goto :menu
 
 :stop_spam
 echo Stopping Spam...
-taskkill /FI "WINDOWTITLE eq SpamBot" /T /F >nul 2>&1
+powershell.exe -Command "Get-Process | Where-Object { $_.MainWindowTitle -eq 'SpamBot' } | Stop-Process -Force" >nul 2>&1
 set "running=0"
 goto :menu
 
 :quit
-taskkill /FI "WINDOWTITLE eq SpamBot" /T /F >nul 2>&1
+powershell.exe -Command "Get-Process | Where-Object { $_.MainWindowTitle -eq 'SpamBot' } | Stop-Process -Force" >nul 2>&1
 echo Exiting...
 timeout /t 1 /nobreak >nul
 exit /b
