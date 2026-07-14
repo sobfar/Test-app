@@ -1,15 +1,14 @@
 @echo off
-title Auto Clicker - Hold LMB
+title Auto Clicker Control
 cls
 echo ==============================
-echo   Auto Clicker - Left Mouse Button
+echo   Auto Clicker - LMB Spammer
+echo ==============================
+echo   [ Num 1 ] - Start Spam
+echo   [ Num 2 ] - Stop Spam
+echo   [ F12 ]   - Exit Program
 echo ==============================
 echo.
-echo How to use:
-echo Hold Left Mouse Button to start spam clicks.
-echo Release Left Mouse Button to stop spam.
+echo Press Num 1 or Num 2 in your game.
 echo.
-echo Press [ F12 ] to exit the program.
-echo.
-echo Running...
-powershell.exe -NoExit -Command "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern short GetAsyncKeyState(int vKey);' -Name 'Win32' -Namespace 'MyNS'; Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, IntPtr dwExtraInfo);' -Name 'Win32Mouse' -Namespace 'MyNS'; $MOUSEEVENTF_LEFTDOWN=0x0002; $MOUSEEVENTF_LEFTUP=0x0004; $LMB=0x01; $F12=0x7B; while($true){ $state=[MyNS.Win32]::GetAsyncKeyState($LMB); if($state -band 0x8000){ [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTDOWN,0,0,0,[IntPtr]::Zero); [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTUP,0,0,0,[IntPtr]::Zero); Start-Sleep -Milliseconds 10 } else { Start-Sleep -Milliseconds 30 } if([MyNS.Win32]::GetAsyncKeyState($F12) -band 0x8000){ break } }"
+powershell.exe -NoExit -Command "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern short GetAsyncKeyState(int vKey);' -Name 'Win32' -Namespace 'MyNS'; Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, IntPtr dwExtraInfo);' -Name 'Win32Mouse' -Namespace 'MyNS'; $MOUSEEVENTF_LEFTDOWN=0x0002; $MOUSEEVENTF_LEFTUP=0x0004; $NUMPAD1=0x61; $NUMPAD2=0x62; $F12=0x7B; $spamming=$false; Write-Host 'Status: Stopped'; while($true){ if([MyNS.Win32]::GetAsyncKeyState($F12) -band 0x8000){ Write-Host 'Exiting...'; break } if([MyNS.Win32]::GetAsyncKeyState($NUMPAD1) -band 0x8000){ if(-not $spamming){ $spamming=$true; Write-Host 'Status: Running' } } if([MyNS.Win32]::GetAsyncKeyState($NUMPAD2) -band 0x8000){ if($spamming){ $spamming=$false; Write-Host 'Status: Stopped' } } if($spamming){ [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTDOWN,0,0,0,[IntPtr]::Zero); [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTUP,0,0,0,[IntPtr]::Zero); Start-Sleep -Milliseconds 10 } Start-Sleep -Milliseconds 50 }"
