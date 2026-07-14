@@ -1,43 +1,15 @@
 @echo off
-title Spammer Controller
-set "running=0"
-
-:menu
+title Auto Clicker - Hold LMB
 cls
 echo ==============================
-echo    Spammer for Key 7 + Left Click
+echo   Auto Clicker - Left Mouse Button
 echo ==============================
-if %running%==0 ( echo Status: [ Stopped ] ) else ( echo Status: [ Running ] )
 echo.
-echo Press [ 1 ] to Start / Stop Spam
-echo Press [ Q ] to Quit
+echo How to use:
+echo Hold Left Mouse Button to start spam clicks.
+echo Release Left Mouse Button to stop spam.
 echo.
-echo [!!!] Press [ 1 ] in THIS BLACK WINDOW to stop!
+echo Press [ F12 ] to exit the program.
 echo.
-
-:waitkey
-choice /C:1Q /N /M "Select option: "
-if errorlevel 2 goto :quit
-if errorlevel 1 goto :toggle
-
-:toggle
-if %running%==0 goto :start_spam
-goto :stop_spam
-
-:start_spam
-echo Starting Spam...
-start "SpamBot" /min powershell.exe -NoExit -Command "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, IntPtr dwExtraInfo);' -Name 'Win32Mouse' -Namespace 'MyNS'; $MOUSEEVENTF_LEFTDOWN=0x0002; $MOUSEEVENTF_LEFTUP=0x0004; Add-Type -AssemblyName System.Windows.Forms; while($true){ [System.Windows.Forms.SendKeys]::SendWait('{7}'); [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [IntPtr]::Zero); [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 10 }"
-set "running=1"
-goto :menu
-
-:stop_spam
-echo Stopping Spam...
-powershell.exe -Command "Get-Process | Where-Object { $_.MainWindowTitle -eq 'SpamBot' } | Stop-Process -Force" >nul 2>&1
-set "running=0"
-goto :menu
-
-:quit
-powershell.exe -Command "Get-Process | Where-Object { $_.MainWindowTitle -eq 'SpamBot' } | Stop-Process -Force" >nul 2>&1
-echo Exiting...
-timeout /t 1 /nobreak >nul
-exit /b
+echo Running...
+powershell.exe -NoExit -Command "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern short GetAsyncKeyState(int vKey);' -Name 'Win32' -Namespace 'MyNS'; Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, IntPtr dwExtraInfo);' -Name 'Win32Mouse' -Namespace 'MyNS'; $MOUSEEVENTF_LEFTDOWN=0x0002; $MOUSEEVENTF_LEFTUP=0x0004; $LMB=0x01; $F12=0x7B; while($true){ $state=[MyNS.Win32]::GetAsyncKeyState($LMB); if($state -band 0x8000){ [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTDOWN,0,0,0,[IntPtr]::Zero); [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTUP,0,0,0,[IntPtr]::Zero); Start-Sleep -Milliseconds 10 } else { Start-Sleep -Milliseconds 30 } if([MyNS.Win32]::GetAsyncKeyState($F12) -band 0x8000){ break } }"
