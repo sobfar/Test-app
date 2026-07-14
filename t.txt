@@ -1,0 +1,39 @@
+@echo off
+title اسپمر کلید 7 و کلیک چپ
+set "running=0"
+
+:menu
+cls
+echo ==============================
+echo   اسپمر کلید 7 + کلیک چپ ماوس
+echo ==============================
+if %running%==0 ( echo وضعیت: [ متوقف ] ) else ( echo وضعیت: [ در حال اجرا ] )
+echo.
+echo براي شروع/توقف اسپم، كليد [ 1 ] را بزنيد
+echo براي خروج، كليد [ Q ] را بزنيد
+echo.
+
+:waitkey
+choice /C:1Q /N /M "> "
+if errorlevel 2 goto :quit
+if errorlevel 1 goto :toggle
+
+:toggle
+if %running%==0 goto :start_spam
+goto :stop_spam
+
+:start_spam
+start "SpamBot" /min powershell.exe -NoExit -Command "Add-Type -MemberDefinition '[DllImport(\"user32.dll\")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, IntPtr dwExtraInfo);' -Name 'Win32Mouse' -Namespace 'MyNS'; $MOUSEEVENTF_LEFTDOWN=0x0002; $MOUSEEVENTF_LEFTUP=0x0004; Add-Type -AssemblyName System.Windows.Forms; while($true){ [System.Windows.Forms.SendKeys]::SendWait('{7}'); [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTDOWN, 0, 0, 0, [IntPtr]::Zero); [MyNS.Win32Mouse]::mouse_event($MOUSEEVENTF_LEFTUP, 0, 0, 0, [IntPtr]::Zero); Start-Sleep -Milliseconds 10 }"
+set "running=1"
+goto :menu
+
+:stop_spam
+taskkill /FI "WINDOWTITLE eq SpamBot" /T /F >nul 2>&1
+set "running=0"
+goto :menu
+
+:quit
+taskkill /FI "WINDOWTITLE eq SpamBot" /T /F >nul 2>&1
+echo خروج از برنامه...
+timeout /t 1 /nobreak >nul
+exit /b
