@@ -6,6 +6,7 @@ color 0E
 
 set "hosts_file=hosts.txt"
 set "result_file=%temp%\ping_results.tmp"
+set "ping_out=%temp%\ping_out.tmp"
 
 :start
 cls
@@ -43,14 +44,23 @@ for /f "usebackq delims=" %%a in ("%hosts_file%") do (
     if defined host (
         echo [!time:~0,8!] - Checking: !host!
 
-        ping -n 4 "!host!" >nul 2>&1
+        set "avg=N/A"
+        set "avgraw="
+
+        ping -n 4 "!host!" > "%ping_out%" 2>&1
 
         if errorlevel 1 (
             echo Status: FAIL - No response.
             echo !host! - FAIL >> "%result_file%"
         ) else (
-            echo Status: OK - Response received.
-            echo !host! - OK >> "%result_file%"
+            for /f "tokens=4 delims==" %%v in ('findstr /i "Average" "%ping_out%"') do (
+                set "avgraw=%%v"
+            )
+            if defined avgraw (
+                set "avg=!avgraw: =!"
+            )
+            echo Status: OK - Average: !avg!
+            echo !host! - OK - Avg: !avg! >> "%result_file%"
         )
         echo ----------------------------------------
         echo.
