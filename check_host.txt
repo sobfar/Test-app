@@ -1,0 +1,56 @@
+@echo off
+title Ping Checker
+color 0E
+
+set "hosts_file=hosts.txt"
+
+:start
+cls
+echo ================================
+echo       Automated Ping Tool
+echo ================================
+echo.
+
+if not exist "%hosts_file%" (
+    echo Hosts file (hosts.txt) not found!
+    echo Creating a sample file with default addresses...
+    echo.
+    echo google.com > "%hosts_file%"
+    echo 8.8.8.8 >> "%hosts_file%"
+    echo youtube.com >> "%hosts_file%"
+    echo github.com >> "%hosts_file%"
+    echo.
+    echo File hosts.txt created. Please open it and edit the addresses
+    echo (one per line). Then save and run this script again.
+    echo.
+    echo Do you want to open the file now? (Y/N)
+    set /p open_file=": "
+    if /i "%open_file%"=="Y" start notepad "%hosts_file%"
+    echo.
+    pause
+    exit /b
+)
+
+echo Pinging addresses from the list...
+echo (Press Ctrl+C to stop any ping)
+echo ----------------------------------------
+echo.
+
+for /f "usebackq delims=" %%a in ("%hosts_file%") do (
+    if not "%%a"=="" (
+        echo [%time:~0,8%] - Checking: %%a
+        ping %%a -n 4
+
+        if errorlevel 1 (
+            echo Status: [FAIL] - No response!
+        ) else (
+            echo Status: [OK] - Response received.
+        )
+        echo ----------------------------------------
+        echo.
+    )
+)
+
+echo.
+echo All addresses checked.
+pause
