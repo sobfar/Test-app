@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 cd /d "%~dp0"
 title Ping Checker
 color 0E
@@ -17,10 +18,12 @@ if not exist "%hosts_file%" (
     echo Hosts file (hosts.txt) not found!
     echo Creating sample file with default addresses...
     echo.
-    echo google.com > "%hosts_file%"
-    echo 8.8.8.8 >> "%hosts_file%"
-    echo youtube.com >> "%hosts_file%"
-    echo github.com >> "%hosts_file%"
+    (
+        echo google.com
+        echo 8.8.8.8
+        echo youtube.com
+        echo github.com
+    ) > "%hosts_file%"
     echo.
     echo File created. Please edit it and run again.
     echo.
@@ -33,32 +36,27 @@ echo (Please wait...)
 echo ----------------------------------------
 echo.
 
-REM Clear the temporary result file
 type nul > "%result_file%"
 
 for /f "usebackq delims=" %%a in ("%hosts_file%") do (
-    if not "%%a"=="" (
-        set "host=%%a"
-        echo [%time:~0,8%] - Checking: %%a
-        
-        REM Ping with 4 requests and hide output (send to null)
-        ping %%a -n 4 >nul 2>&1
+    set "host=%%a"
+    if defined host (
+        echo [!time:~0,8!] - Checking: !host!
+
+        ping -n 4 "!host!" >nul 2>&1
 
         if errorlevel 1 (
             echo Status: [FAIL] - No response!
-            echo %%a - [FAIL] >> "%result_file%"
+            echo !host! - [FAIL] >> "%result_file%"
         ) else (
             echo Status: [OK] - Response received.
-            echo %%a - [OK] >> "%result_file%"
+            echo !host! - [OK] >> "%result_file%"
         )
         echo ----------------------------------------
         echo.
     )
 )
 
-REM ============================================
-REM        DISPLAY FINAL SUMMARY REPORT
-REM ============================================
 echo.
 echo ========================================
 echo          PING SUMMARY REPORT
@@ -67,9 +65,6 @@ type "%result_file%"
 echo ========================================
 echo.
 
-REM ============================================
-REM        ASK TO RUN AGAIN OR EXIT
-REM ============================================
 choice /m "Do you want to run ping again"
 if errorlevel 2 exit /b
 if errorlevel 1 goto start
