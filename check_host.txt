@@ -4,26 +4,72 @@ title Ping Checker
 color 0E
 
 set "hosts_file=hosts.txt"
+set "result_file=%temp%\ping_results.tmp"
+
+:start
+cls
+echo ================================
+echo       Automated Ping Tool
+echo ================================
+echo.
 
 if not exist "%hosts_file%" (
-    echo hosts.txt not found. Creating sample file...
+    echo Hosts file (hosts.txt) not found!
+    echo Creating sample file with default addresses...
+    echo.
     echo google.com > "%hosts_file%"
     echo 8.8.8.8 >> "%hosts_file%"
     echo youtube.com >> "%hosts_file%"
+    echo github.com >> "%hosts_file%"
     echo.
-    echo File created. Edit it and run again.
+    echo File created. Please edit it and run again.
+    echo.
     pause
     exit /b
 )
 
-cls
-echo Pinging list from hosts.txt...
-echo ------------------------------
+echo Pinging addresses from the list...
+echo (Please wait...)
+echo ----------------------------------------
+echo.
+
+REM Clear the temporary result file
+type nul > "%result_file%"
+
 for /f "usebackq delims=" %%a in ("%hosts_file%") do (
-    echo [%time:~0,8%] Pinging %%a
-    ping %%a -n 4
-    echo.
+    if not "%%a"=="" (
+        set "host=%%a"
+        echo [%time:~0,8%] - Checking: %%a
+        
+        REM Ping with 4 requests and hide output (send to null)
+        ping %%a -n 4 >nul 2>&1
+
+        if errorlevel 1 (
+            echo Status: [FAIL] - No response!
+            echo %%a - [FAIL] >> "%result_file%"
+        ) else (
+            echo Status: [OK] - Response received.
+            echo %%a - [OK] >> "%result_file%"
+        )
+        echo ----------------------------------------
+        echo.
+    )
 )
 
-echo All done.
-pause
+REM ============================================
+REM        DISPLAY FINAL SUMMARY REPORT
+REM ============================================
+echo.
+echo ========================================
+echo          PING SUMMARY REPORT
+echo ========================================
+type "%result_file%"
+echo ========================================
+echo.
+
+REM ============================================
+REM        ASK TO RUN AGAIN OR EXIT
+REM ============================================
+choice /m "Do you want to run ping again"
+if errorlevel 2 exit /b
+if errorlevel 1 goto start
