@@ -1,0 +1,142 @@
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, Tahoma, Arial, sans-serif;
+  background: #0f1115;
+  color: #eee;
+  height: 100vh;
+  overflow: hidden;
+}
+.screen {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+  padding: 16px;
+}
+.screen.active { display: flex; }
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+header h1 {
+  font-size: 18px;
+  margin: 0;
+  flex: 1;
+}
+.icon-btn {
+  background: #1c1f26;
+  border: none;
+  color: #fff;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  font-size: 18px;
+}
+.hint { color: #9aa0a6; font-size: 14px; margin: 0 0 12px; }
+
+.wifi-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.wifi-list li {
+  background: #1c1f26;
+  padding: 14px 16px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.wifi-list li .ssid { font-size: 15px; }
+.wifi-list li .signal { color: #9aa0a6; font-size: 13px; }
+
+.status-box {
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+.status-box.error { background: #3a1c1c; color: #ff8080; }
+.status-box.success { background: #1c3a24; color: #7fe08c; }
+.hidden { display: none !important; }
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+  color: #9aa0a6;
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #333;
+  border-top-color: #4c9aff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.form-box { display: flex; flex-direction: column; gap: 10px; }
+.form-box label { font-size: 14px; color: #c9c9c9; }
+.form-box input[type="password"] {
+  background: #1c1f26;
+  border: 1px solid #333;
+  color: #fff;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+.checkbox-row { display: flex; align-items: center; gap: 6px; }
+
+.primary-btn {
+  background: #4c9aff;
+  color: #fff;
+  border: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-size: 15px;
+  margin-top: 8px;
+}
+
+#board-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.secondary-btn {
+  background: #1c1f26;
+  color: #cfd6e0;
+  border: 1px solid #333;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  margin-top: 6px;
+  width: 100%;
+}
+.scroll-form { overflow-y: auto; flex: 1; }
+.extract-output {
+  flex: 1;
+  width: 100%;
+  background: #1c1f26;
+  color: #9ae6b4;
+  border: 1px solid #333;
+  border-radius: 10px;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 12px;
+  margin-top: 10px;
+  direction: ltr;
+  text-align: left;
+}
+
