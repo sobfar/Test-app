@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>تنظیم برد</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- صفحه ۱: لیست وای‌فای -->
+  <section id="screen-list" class="screen active">
+    <header>
+      <h1>اتصال به برد</h1>
+      <button id="btn-scan" class="icon-btn" title="اسکن مجدد">🔄</button>
+    </header>
+
+    <p class="hint">شبکه وای‌فای برد خودتون رو از لیست زیر انتخاب کنید.</p>
+
+    <div id="status-box" class="status-box hidden"></div>
+
+    <ul id="wifi-list" class="wifi-list"></ul>
+
+    <div id="loading" class="loading hidden">
+      <div class="spinner"></div>
+      <span>در حال اسکن شبکه‌ها...</span>
+    </div>
+  </section>
+
+  <!-- صفحه ۲: وارد کردن رمز -->
+  <section id="screen-password" class="screen">
+    <header>
+      <button id="btn-back-from-pass" class="icon-btn">→</button>
+      <h1 id="pass-ssid-title">اتصال</h1>
+    </header>
+    <div class="form-box">
+      <label for="wifi-password">رمز عبور وای‌فای</label>
+      <input type="password" id="wifi-password" placeholder="رمز عبور را وارد کنید" />
+      <label class="checkbox-row">
+        <input type="checkbox" id="show-password" /> نمایش رمز
+      </label>
+      <button id="btn-connect" class="primary-btn">اتصال</button>
+    </div>
+  </section>
+
+  <!-- صفحه ۳: کنترل صفحه تنظیمات برد (با InAppBrowser) -->
+  <section id="screen-board" class="screen">
+    <header>
+      <button id="btn-back-from-board" class="icon-btn">→</button>
+      <h1>تنظیمات برد</h1>
+      <button id="btn-edit-values" class="icon-btn" title="ویرایش مقادیر">⚙️</button>
+    </header>
+
+    <p class="hint">اول مقادیر کالیبراسیون رو در بخش ⚙️ چک کن، بعد یکی از گزینه‌های زیر رو بزن.</p>
+
+    <div class="form-box">
+      <button id="btn-open-fill" class="primary-btn">باز کردن صفحه برد و پر کردن خودکار</button>
+      <button id="btn-open-only" class="secondary-btn">فقط باز کردن صفحه برد (بدون پر کردن)</button>
+      <button id="btn-extract-html" class="secondary-btn">استخراج HTML صفحه (برای بررسی و اصلاح بعدی)</button>
+    </div>
+
+    <div id="board-status" class="status-box hidden"></div>
+
+    <textarea id="extract-output" class="extract-output hidden" readonly placeholder="خروجی HTML اینجا نمایش داده می‌شه..."></textarea>
+    <button id="btn-copy-html" class="secondary-btn hidden">کپی کردن HTML</button>
+  </section>
+
+  <!-- صفحه ۴: ویرایش مقادیر کالیبراسیون -->
+  <section id="screen-values" class="screen">
+    <header>
+      <button id="btn-back-from-values" class="icon-btn">→</button>
+      <h1>مقادیر تنظیمات اولیه</h1>
+    </header>
+    <div class="form-box scroll-form">
+      <label>حداکثر ولتاژ ورودی</label>
+      <input type="number" id="val-vmax" />
+
+      <label>حداقل ولتاژ ورودی</label>
+      <input type="number" id="val-vmin" />
+
+      <label>هیستریزیس</label>
+      <input type="number" id="val-hyst" />
+
+      <label>تأخیر محافظ</label>
+      <input type="number" id="val-delay" />
+
+      <label>حد زیربار</label>
+      <input type="number" id="val-under" />
+
+      <label>کالیبراسیون ولتاژ خروجی</label>
+      <input type="number" id="val-calout" />
+
+      <label>کالیبراسیون ولتاژ ورودی</label>
+      <input type="number" id="val-calin" />
+
+      <label>ضریب کالیبراسیون</label>
+      <input type="number" id="val-coeff" />
+
+      <button id="btn-save-values" class="primary-btn">ذخیره مقادیر</button>
+    </div>
+  </section>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
+
