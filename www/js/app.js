@@ -199,10 +199,18 @@ function buildFillScript(values) {
   };
 
   return (
-    "(function(){\n" +
+    "(async function(){\n" +
     "  var fieldMap = " + JSON.stringify(fieldMap) + ";\n" +
-    "  var results = [];\n" +
+    "  var results = {};\n" +
+    "  var PANEL_LABELS = ['تنظیمات پیشرفته', 'تنظیم آستانه\\u200cهای ولتاژ', 'تنظیم آستانه های ولتاژ'];\n" +
+    "  function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }\n" +
     "  function norm(t){ return (t||'').toLowerCase().replace(/\\s+/g,''); }\n" +
+    "  function findClickable(labelText){\n" +
+    "    var all = Array.from(document.querySelectorAll('button, a, div, span'));\n" +
+    "    return all.find(function(el){\n" +
+    "      return el.children.length === 0 && norm(el.textContent).indexOf(norm(labelText)) !== -1;\n" +
+    "    });\n" +
+    "  }\n" +
     "  function findByAttrs(keywords){\n" +
     "    var inputs = Array.from(document.querySelectorAll('input, select'));\n" +
     "    for (var i=0;i<inputs.length;i++){\n" +
@@ -240,30 +248,58 @@ function buildFillScript(values) {
     "    }\n" +
     "    return null;\n" +
     "  }\n" +
-    "  Object.keys(fieldMap).forEach(function(key){\n" +
-    "    var f = fieldMap[key];\n" +
-    "    var target = findByAttrs(f.keywords) || findByLabelText(f.keywords);\n" +
-    "    if (target){\n" +
-    "      target.focus();\n" +
-    "      if (target.tagName === 'SELECT'){ target.value = String(f.value); }\n" +
-    "      else { target.value = f.value; }\n" +
-    "      target.dispatchEvent(new Event('input', {bubbles:true}));\n" +
-    "      target.dispatchEvent(new Event('change', {bubbles:true}));\n" +
-    "      results.push(key + ': پیدا و پر شد');\n" +
-    "    } else {\n" +
-    "      results.push(key + ': پیدا نشد');\n" +
-    "    }\n" +
-    "  });\n" +
-    "  if (window.mobileApp) { window.mobileApp.postMessage({ detail: { type: 'fillResult', results: results } }); }\n" +
+    "  function fillVisibleFields(){\n" +
+    "    Object.keys(fieldMap).forEach(function(key){\n" +
+    "      if (results[key] === 'پیدا و پر شد') return;\n" +
+    "      var f = fieldMap[key];\n" +
+    "      var target = findByAttrs(f.keywords) || findByLabelText(f.keywords);\n" +
+    "      if (target){\n" +
+    "        target.focus();\n" +
+    "        if (target.tagName === 'SELECT'){ target.value = String(f.value); }\n" +
+    "        else { target.value = f.value; }\n" +
+    "        target.dispatchEvent(new Event('input', {bubbles:true}));\n" +
+    "        target.dispatchEvent(new Event('change', {bubbles:true}));\n" +
+    "        results[key] = 'پیدا و پر شد';\n" +
+    "      } else if (!results[key]) {\n" +
+    "        results[key] = 'پیدا نشد';\n" +
+    "      }\n" +
+    "    });\n" +
+    "  }\n" +
+    "  fillVisibleFields();\n" +
+    "  for (var p=0;p<PANEL_LABELS.length;p++){\n" +
+    "    var btn = findClickable(PANEL_LABELS[p]);\n" +
+    "    if (btn) { btn.click(); await wait(900); fillVisibleFields(); }\n" +
+    "  }\n" +
+    "  var resultLines = Object.keys(fieldMap).map(function(k){ return k + ': ' + (results[k] || 'پیدا نشد'); });\n" +
+    "  if (window.mobileApp) { window.mobileApp.postMessage({ detail: { type: 'fillResult', results: resultLines } }); }\n" +
     "})();"
   );
 }
 
 const EXTRACT_SCRIPT =
-  "(function(){\n" +
-  "  var html = document.documentElement.outerHTML;\n" +
+  "(async function(){\n" +
+  "  var PANEL_LABELS = ['تنظیمات پیشرفته', 'تنظیم آستانه\\u200cهای ولتاژ', 'تنظیم آستانه های ولتاژ'];\n" +
+  "  function wait(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }\n" +
+  "  function norm(t){ return (t||'').toLowerCase().replace(/\\s+/g,''); }\n" +
+  "  function findClickable(labelText){\n" +
+  "    var all = Array.from(document.querySelectorAll('button, a, div, span'));\n" +
+  "    return all.find(function(el){\n" +
+  "      return el.children.length === 0 && norm(el.textContent).indexOf(norm(labelText)) !== -1;\n" +
+  "    });\n" +
+  "  }\n" +
+  "  var snapshots = ['--- صفحه اصلی ---\\n' + document.documentElement.outerHTML];\n" +
+  "  for (var p=0;p<PANEL_LABELS.length;p++){\n" +
+  "    var btn = findClickable(PANEL_LABELS[p]);\n" +
+  "    if (btn) {\n" +
+  "      btn.click();\n" +
+  "      await wait(900);\n" +
+  "      snapshots.push('--- بعد از کلیک روی: ' + PANEL_LABELS[p] + ' ---\\n' + document.documentElement.outerHTML);\n" +
+  "    }\n" +
+  "  }\n" +
+  "  var html = snapshots.join('\\n\\n');\n" +
   "  if (window.mobileApp) { window.mobileApp.postMessage({ detail: { type: 'htmlExtract', html: html } }); }\n" +
   "})();";
+
 
 let messageListenerAttached = false;
 function attachBrowserMessageListener() {
@@ -360,4 +396,3 @@ window.addEventListener('DOMContentLoaded', () => {
   fillValueInputs(loadValues());
   scanNetworks();
 });
-
