@@ -7,12 +7,12 @@
     "open": "npx cap open android"
   },
   "dependencies": {
-    "@capacitor/android": "^7.0.0",
-    "@capacitor/core": "^7.0.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
     "@capgo/capacitor-wifi": "^8.0.0",
     "@capgo/capacitor-inappbrowser": "^8.0.0"
   },
   "devDependencies": {
-    "@capacitor/cli": "^7.0.0"
+    "@capacitor/cli": "^8.0.0"
   }
 }
