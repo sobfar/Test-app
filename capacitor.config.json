@@ -1,0 +1,8 @@
+{
+  "appId": "com.sobhan2.boardsetup",
+  "appName": "Board Setup",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
