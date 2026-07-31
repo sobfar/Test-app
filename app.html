@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>تنظیم برد</title>
+  <style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: -apple-system, Tahoma, Arial, sans-serif;
+  background: radial-gradient(circle at 30% 0%, #2a0e42 0%, #12061f 45%, #05030a 100%);
+  color: #f1eef7;
+  height: 100vh;
+  overflow: hidden;
+}
+.screen {
+  display: none;
+  flex-direction: column;
+  height: 100vh;
+  padding: 16px;
+}
+.screen.active { display: flex; }
+
+header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+header h1 {
+  font-size: 18px;
+  margin: 0;
+  flex: 1;
+  color: #f4eefb;
+}
+.icon-btn {
+  background: linear-gradient(145deg, #2b1240, #1a0b2e);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  color: #e9d5ff;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+.hint { color: #b8a8cc; font-size: 14px; margin: 0 0 12px; }
+
+.wifi-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.wifi-list li {
+  background: linear-gradient(145deg, rgba(88, 28, 135, 0.35), rgba(15, 6, 26, 0.6));
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  padding: 14px 16px;
+  border-radius: 14px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.wifi-list li .ssid { font-size: 15px; }
+.wifi-list li .signal { color: #b8a8cc; font-size: 13px; }
+
+.status-box {
+  padding: 10px 14px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+.status-box.error { background: #3a1030; color: #ff8ad4; border: 1px solid rgba(255,138,212,0.25); }
+.status-box.success { background: #1c3a2a; color: #7fe0a8; border: 1px solid rgba(127,224,168,0.25); }
+.hidden { display: none !important; }
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex: 1;
+  color: #b8a8cc;
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #2b1240;
+  border-top-color: #a855f7;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.form-box { display: flex; flex-direction: column; gap: 10px; }
+.form-box label { font-size: 14px; color: #cbb8e0; }
+.form-box input[type="password"],
+.form-box input[type="number"] {
+  background: rgba(20, 9, 35, 0.7);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #fff;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 15px;
+}
+.checkbox-row { display: flex; align-items: center; gap: 6px; color: #cbb8e0; }
+
+.primary-btn {
+  background: linear-gradient(135deg, #a855f7, #6d28d9);
+  color: #fff;
+  border: none;
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 15px;
+  margin-top: 8px;
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.35);
+}
+.secondary-btn {
+  background: rgba(88, 28, 135, 0.2);
+  color: #e9d5ff;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  padding: 12px;
+  border-radius: 14px;
+  font-size: 14px;
+  margin-top: 6px;
+  width: 100%;
+}
+.scroll-form { overflow-y: auto; flex: 1; }
+
+.extract-output {
+  flex: 1;
+  width: 100%;
+  background: rgba(10, 4, 18, 0.85);
+  color: #c9a8ff;
+  border: 1px solid rgba(168, 85, 247, 0.25);
+  border-radius: 12px;
+  padding: 10px;
+  font-family: monospace;
+  font-size: 12px;
+  margin-top: 10px;
+  direction: ltr;
+  text-align: left;
+}
+
+/* ---------------- منوی کشویی ---------------- */
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  z-index: 40;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 78%;
+  max-width: 300px;
+  background: linear-gradient(160deg, #2a0e42 0%, #150826 60%, #05030a 100%);
+  border-left: 1px solid rgba(168, 85, 247, 0.25);
+  box-shadow: -10px 0 40px rgba(0,0,0,0.5);
+  z-index: 50;
+  transform: translateX(100%);
+  transition: transform 0.28s ease;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 14px;
+}
+.drawer.open { transform: translateX(0); }
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 6px 20px;
+  border-bottom: 1px solid rgba(168, 85, 247, 0.2);
+  margin-bottom: 12px;
+}
+.drawer-logo {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #a855f7, #6d28d9);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.drawer-title { font-size: 15px; font-weight: bold; color: #f4eefb; }
+
+.drawer-menu { list-style: none; margin: 0; padding: 0; }
+.drawer-menu li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 10px;
+  border-radius: 12px;
+  margin-bottom: 4px;
+  color: #e4d6f7;
+  font-size: 15px;
+}
+.drawer-menu li:active { background: rgba(168, 85, 247, 0.18); }
+.drawer-icon { font-size: 18px; width: 22px; text-align: center; }
+.drawer-menu li span:nth-child(2) { flex: 1; }
+.drawer-arrow { color: #7c5aa6; font-size: 16px; }
+
+  </style>
+</head>
+<body>
+
+  <!-- صفحه ۱: لیست وای‌فای -->
+  <section id="screen-list" class="screen active">
+    <header>
+      <button class="icon-btn menu-btn" title="منو">☰</button>
+      <h1>اتصال به برد</h1>
+      <button id="btn-scan" class="icon-btn" title="اسکن مجدد">🔄</button>
+    </header>
+
+    <p class="hint">شبکه وای‌فای برد خودتون رو از لیست زیر انتخاب کنید.</p>
+
+    <div id="status-box" class="status-box hidden"></div>
+
+    <ul id="wifi-list" class="wifi-list"></ul>
+
+    <div id="loading" class="loading hidden">
+      <div class="spinner"></div>
+      <span>در حال اسکن شبکه‌ها...</span>
+    </div>
+  </section>
+
+  <!-- صفحه ۲: وارد کردن رمز -->
+  <section id="screen-password" class="screen">
+    <header>
+      <button class="icon-btn menu-btn" title="منو">☰</button>
+      <button id="btn-back-from-pass" class="icon-btn">→</button>
+      <h1 id="pass-ssid-title">اتصال</h1>
+    </header>
+    <div class="form-box">
+      <label for="wifi-password">رمز عبور وای‌فای</label>
+      <input type="password" id="wifi-password" placeholder="رمز عبور را وارد کنید" />
+      <label class="checkbox-row">
+        <input type="checkbox" id="show-password" /> نمایش رمز
+      </label>
+      <button id="btn-connect" class="primary-btn">اتصال</button>
+    </div>
+  </section>
+
+  <!-- صفحه ۳: کنترل صفحه تنظیمات برد (با InAppBrowser) -->
+  <section id="screen-board" class="screen">
+    <header>
+      <button class="icon-btn menu-btn" title="منو">☰</button>
+      <button id="btn-back-from-board" class="icon-btn">→</button>
+      <h1>تنظیمات برد</h1>
+      <button id="btn-edit-values" class="icon-btn" title="ویرایش مقادیر">⚙️</button>
+    </header>
+
+    <p class="hint">اول مقادیر کالیبراسیون رو در بخش ⚙️ چک کن، بعد یکی از گزینه‌های زیر رو بزن.</p>
+
+    <div class="form-box">
+      <button id="btn-open-fill" class="primary-btn">باز کردن صفحه برد و پر کردن خودکار</button>
+      <button id="btn-open-only" class="secondary-btn">فقط باز کردن صفحه برد (بدون پر کردن)</button>
+      <button id="btn-extract-html" class="secondary-btn">استخراج HTML صفحه (برای بررسی و اصلاح بعدی)</button>
+    </div>
+
+    <div id="board-status" class="status-box hidden"></div>
+
+    <textarea id="extract-output" class="extract-output hidden" readonly placeholder="خروجی HTML اینجا نمایش داده می‌شه..."></textarea>
+    <button id="btn-copy-html" class="secondary-btn hidden">کپی کردن HTML</button>
+  </section>
+
+  <!-- صفحه ۴: ویرایش مقادیر کالیبراسیون -->
+  <section id="screen-values" class="screen">
+    <header>
+      <button class="icon-btn menu-btn" title="منو">☰</button>
+      <button id="btn-back-from-values" class="icon-btn">→</button>
+      <h1>مقادیر تنظیمات اولیه</h1>
+    </header>
+    <div class="form-box scroll-form">
+      <label>حداکثر ولتاژ ورودی</label>
+      <input type="number" id="val-vmax" />
+
+      <label>حداقل ولتاژ ورودی</label>
+      <input type="number" id="val-vmin" />
+
+      <label>هیستریزیس</label>
+      <input type="number" id="val-hyst" />
+
+      <label>تأخیر محافظ</label>
+      <input type="number" id="val-delay" />
+
+      <label>حد زیربار</label>
+      <input type="number" id="val-under" />
+
+      <label>کالیبراسیون ولتاژ خروجی</label>
+      <input type="number" id="val-calout" />
+
+      <label>کالیبراسیون ولتاژ ورودی</label>
+      <input type="number" id="val-calin" />
+
+      <label>ضریب کالیبراسیون</label>
+      <input type="number" id="val-coeff" />
+
+      <button id="btn-save-values" class="primary-btn">ذخیره مقادیر</button>
+    </div>
+  </section>
+
+  <!-- منوی کشویی -->
+  <div id="drawer-overlay" class="drawer-overlay hidden"></div>
+  <nav id="drawer" class="drawer">
+    <div class="drawer-header">
+      <div class="drawer-logo">⚡</div>
+      <div class="drawer-title">تنظیم برد استابلایزر</div>
+    </div>
+    <ul class="drawer-menu">
+      <li data-screen="list"><span class="drawer-icon">📶</span><span>اتصال وای‌فای</span><span class="drawer-arrow">‹</span></li>
+      <li data-screen="board"><span class="drawer-icon">🖥️</span><span>تنظیمات برد</span><span class="drawer-arrow">‹</span></li>
+      <li data-screen="values"><span class="drawer-icon">⚙️</span><span>مقادیر کالیبراسیون</span><span class="drawer-arrow">‹</span></li>
+    </ul>
+  </nav>
+
+  <script type="module">
+// ---------------------------------------------
+// تنظیمات
+// ---------------------------------------------
+import { CapacitorWifi } from '@capgo/capacitor-wifi';
+import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
+
+const BOARD_URL = 'http://192.168.4.1';
+const STORAGE_KEY = 'board_calibration_values';
+
+const DEFAULT_VALUES = {
+  vmax: 240,
+  vmin: 100,
+  hyst: 7,
+  delay: 5,
+  under: 100,
+  calout: 485,
+  calin: 485,
+  coeff: 90,
+};
+
+function getWifi() {
+  if (!CapacitorWifi) console.warn('پلاگین وای‌فای در دسترس نیست (روی مرورگر معمولی کار نمی‌کنه).');
+  return CapacitorWifi;
+}
+function getBrowser() {
+  if (!InAppBrowser) console.warn('پلاگین InAppBrowser در دسترس نیست (روی مرورگر معمولی کار نمی‌کنه).');
+  return InAppBrowser;
+}
+
+const screens = {
+  list: document.getElementById('screen-list'),
+  password: document.getElementById('screen-password'),
+  board: document.getElementById('screen-board'),
+  values: document.getElementById('screen-values'),
+};
+function showScreen(name) {
+  Object.values(screens).forEach(s => s.classList.remove('active'));
+  screens[name].classList.add('active');
+}
+
+const wifiListEl = document.getElementById('wifi-list');
+const loadingEl = document.getElementById('loading');
+const statusBoxEl = document.getElementById('status-box');
+let selectedSsid = null;
+
+function setStatus(message, type) {
+  statusBoxEl.textContent = message;
+  statusBoxEl.className = 'status-box ' + (type || '');
+  statusBoxEl.classList.remove('hidden');
+}
+function clearStatus() { statusBoxEl.classList.add('hidden'); }
+
+function renderNetworks(networks) {
+  wifiListEl.innerHTML = '';
+  if (!networks || networks.length === 0) {
+    wifiListEl.innerHTML = '<li style="justify-content:center;color:#9aa0a6">شبکه‌ای پیدا نشد</li>';
+    return;
+  }
+  const unique = Object.values(
+    networks.reduce((acc, n) => {
+      if (!acc[n.ssid] || acc[n.ssid].rssi < n.rssi) acc[n.ssid] = n;
+      return acc;
+    }, {})
+  ).sort((a, b) => b.rssi - a.rssi);
+
+  unique.forEach(net => {
+    const li = document.createElement('li');
+    li.innerHTML = '<span class="ssid">📶 ' + (net.ssid || '(بدون نام)') + '</span><span class="signal">' + net.rssi + ' dBm</span>';
+    li.addEventListener('click', () => onNetworkTap(net.ssid));
+    wifiListEl.appendChild(li);
+  });
+}
+
+async function scanNetworks() {
+  const Wifi = getWifi();
+  if (!Wifi) {
+    setStatus('این قابلیت فقط روی اپ نصب‌شده روی گوشی کار می‌کند، نه در مرورگر.', 'error');
+    return;
+  }
+  clearStatus();
+  loadingEl.classList.remove('hidden');
+  wifiListEl.innerHTML = '';
+
+  try {
+    const perm = await Wifi.checkPermissions();
+    console.log('wifi permission status:', perm);
+    if (perm.location !== 'granted') {
+      const req = await Wifi.requestPermissions({ permissions: ['location'] });
+      console.log('wifi permission request result:', req);
+      if (req.location !== 'granted') {
+        setStatus('برای دیدن لیست وای‌فای‌ها به دسترسی موقعیت مکانی نیاز داریم. از تنظیمات گوشی، دسترسی موقعیت مکانی رو برای این اپ فعال کن.', 'error');
+        loadingEl.classList.add('hidden');
+        return;
+      }
+    }
+
+    let finished = false;
+    async function finishScan(source) {
+      if (finished) return;
+      finished = true;
+      try {
+        const result = await Wifi.getAvailableNetworks();
+        console.log('scan finished via ' + source + ', networks:', result);
+        renderNetworks(result.networks);
+      } catch (e) {
+        console.error('getAvailableNetworks failed:', e);
+        setStatus('خطا در گرفتن لیست شبکه‌ها: ' + (e.message || e), 'error');
+      }
+      loadingEl.classList.add('hidden');
+      handle.remove();
+    }
+
+    const handle = await Wifi.addListener('networksScanned', () => finishScan('event'));
+
+    await Wifi.startScan();
+    console.log('startScan called, waiting for networksScanned event...');
+
+    // اگه رویداد networksScanned تا ۶ ثانیه فایر نشد (مثلاً به خاطر محدودیت اسکن اندروید)،
+    // خودمون مستقیم نتیجه رو می‌گیریم تا اسپینر برای همیشه نمونه
+    setTimeout(() => {
+      if (!finished) {
+        console.warn('networksScanned event did not fire within 6s, falling back');
+        finishScan('timeout-fallback');
+      }
+    }, 6000);
+  } catch (err) {
+    console.error(err);
+    setStatus('خطا در اسکن شبکه‌ها: ' + (err.message || err), 'error');
+    loadingEl.classList.add('hidden');
+  }
+}
+
+document.getElementById('btn-scan').addEventListener('click', scanNetworks);
+
+function onNetworkTap(ssid) {
+  selectedSsid = ssid;
+  document.getElementById('pass-ssid-title').textContent = 'اتصال به ' + ssid;
+  document.getElementById('wifi-password').value = '';
+  showScreen('password');
+}
+
+document.getElementById('btn-back-from-pass').addEventListener('click', () => showScreen('list'));
+document.getElementById('show-password').addEventListener('change', (e) => {
+  document.getElementById('wifi-password').type = e.target.checked ? 'text' : 'password';
+});
+
+document.getElementById('btn-connect').addEventListener('click', async () => {
+  const password = document.getElementById('wifi-password').value;
+  const Wifi = getWifi();
+  if (!Wifi || !selectedSsid) return;
+
+  const btn = document.getElementById('btn-connect');
+  btn.disabled = true;
+  btn.textContent = 'در حال اتصال...';
+
+  try {
+    await Wifi.connect({
+      ssid: selectedSsid,
+      password: password,
+      autoRouteTraffic: true,
+    });
+    showScreen('board');
+  } catch (err) {
+    console.error(err);
+    alert('اتصال ناموفق بود: ' + (err.message || err));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'اتصال';
+  }
+});
+
+const valueFieldIds = ['vmax', 'vmin', 'hyst', 'delay', 'under', 'calout', 'calin', 'coeff'];
+
+function loadValues() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : Object.assign({}, DEFAULT_VALUES);
+  } catch (e) {
+    return Object.assign({}, DEFAULT_VALUES);
+  }
+}
+function saveValues(values) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(values));
+}
+function fillValueInputs(values) {
+  valueFieldIds.forEach(id => {
+    document.getElementById('val-' + id).value = values[id];
+  });
+}
+function readValueInputs() {
+  const values = {};
+  valueFieldIds.forEach(id => {
+    values[id] = document.getElementById('val-' + id).value;
+  });
+  return values;
+}
+
+document.getElementById('btn-edit-values').addEventListener('click', () => {
+  fillValueInputs(loadValues());
+  showScreen('values');
+});
+document.getElementById('btn-back-from-values').addEventListener('click', () => showScreen('board'));
+document.getElementById('btn-save-values').addEventListener('click', () => {
+  saveValues(readValueInputs());
+  showScreen('board');
+});
+
+const boardStatusEl = document.getElementById('board-status');
+function setBoardStatus(message, type) {
+  boardStatusEl.textContent = message;
+  boardStatusEl.className = 'status-box ' + (type || '');
+  boardStatusEl.classList.remove('hidden');
+}
+function clearBoardStatus() { boardStatusEl.classList.add('hidden'); }
+
+const PANEL_LABELS = ['تنظیمات پیشرفته', 'تنظیم آستانه‌های ولتاژ', 'تنظیم آستانه های ولتاژ'];
+
+// این تابع به‌صورت متن (toString) داخل صفحه‌ی برد تزریق و اجرا می‌شه، پس نمی‌تونه
+// به هیچ متغیر یا تابعی خارج از خودش دسترسی داشته باشه — همه‌چیز باید خودکفا باشه.
+async function fillFieldsImpl(fieldMap, panelLabels) {
+  var results = {};
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function norm(t) { return (t || '').toLowerCase().replace(/\s+/g, ''); }
+
+  function findClickable(labelText) {
+    var all = Array.from(document.querySelectorAll('button, a, div, span'));
+    return all.find(function (el) {
+      return el.children.length === 0 && norm(el.textContent).indexOf(norm(labelText)) !== -1;
+    });
+  }
+  function findByAttrs(keywords) {
+    var inputs = Array.from(document.querySelectorAll('input, select'));
+    for (var i = 0; i < inputs.length; i++) {
+      var el = inputs[i];
+      var hay = norm((el.name || '') + ' ' + (el.id || '') + ' ' + (el.placeholder || ''));
+      for (var k = 0; k < keywords.length; k++) {
+        if (hay.indexOf(norm(keywords[k])) !== -1) return el;
+      }
+    }
+    return null;
+  }
+  function findByLabelText(keywords) {
+    var candidates = Array.from(document.querySelectorAll('label, td, span, div, p, b, strong'));
+    for (var i = 0; i < candidates.length; i++) {
+      var el = candidates[i];
+      if (el.children.length > 0) continue;
+      var text = norm(el.textContent);
+      for (var k = 0; k < keywords.length; k++) {
+        if (text.indexOf(norm(keywords[k])) === -1) continue;
+        if (el.tagName === 'LABEL' && el.htmlFor) {
+          var t = document.getElementById(el.htmlFor);
+          if (t) return t;
+        }
+        var row = el.closest('tr, li') || el.parentElement;
+        if (row) {
+          var input = row.querySelector('input, select');
+          if (input) return input;
+        }
+        var sib = el.nextElementSibling;
+        while (sib) {
+          if (sib.matches && sib.matches('input, select')) return sib;
+          sib = sib.nextElementSibling;
+        }
+      }
+    }
+    return null;
+  }
+  function fillVisibleFields() {
+    Object.keys(fieldMap).forEach(function (key) {
+      if (results[key] === 'پیدا و پر شد') return;
+      var f = fieldMap[key];
+      var target = findByAttrs(f.keywords) || findByLabelText(f.keywords);
+      if (target) {
+        target.focus();
+        target.value = target.tagName === 'SELECT' ? String(f.value) : f.value;
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        results[key] = 'پیدا و پر شد';
+      } else if (!results[key]) {
+        results[key] = 'پیدا نشد';
+      }
+    });
+  }
+
+  fillVisibleFields();
+  for (var p = 0; p < panelLabels.length; p++) {
+    var btn = findClickable(panelLabels[p]);
+    if (btn) { btn.click(); await wait(900); fillVisibleFields(); }
+  }
+
+  var resultLines = Object.keys(fieldMap).map(function (k) { return k + ': ' + (results[k] || 'پیدا نشد'); });
+  if (window.mobileApp) window.mobileApp.postMessage({ detail: { type: 'fillResult', results: resultLines } });
+}
+
+function buildFillScript(values) {
+  const fieldMap = {
+    vmax:   { value: values.vmax,   keywords: ['vmax', 'v_max', 'maxv', 'حداکثر'] },
+    vmin:   { value: values.vmin,   keywords: ['vmin', 'v_min', 'minv', 'حداقل'] },
+    hyst:   { value: values.hyst,   keywords: ['hyst', 'هیستر'] },
+    delay:  { value: values.delay,  keywords: ['delay', 'تاخیر', 'تأخیر'] },
+    under:  { value: values.under,  keywords: ['under', 'زیربار', 'زیر بار'] },
+    calout: { value: values.calout, keywords: ['calout', 'cal_out', 'خروج'] },
+    calin:  { value: values.calin,  keywords: ['calin', 'cal_in', 'ورودی'] },
+    coeff:  { value: values.coeff,  keywords: ['coeff', 'ضریب', 'k_cal'] },
+  };
+  return `(${fillFieldsImpl.toString()})(${JSON.stringify(fieldMap)}, ${JSON.stringify(PANEL_LABELS)});`;
+}
+
+// همون منطق پیدا کردن پنل‌ها، ولی به‌جای پرکردن، فقط HTML هر مرحله رو برمی‌گردونه
+async function extractHtmlImpl(panelLabels) {
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function norm(t) { return (t || '').toLowerCase().replace(/\s+/g, ''); }
+  function findClickable(labelText) {
+    var all = Array.from(document.querySelectorAll('button, a, div, span'));
+    return all.find(function (el) {
+      return el.children.length === 0 && norm(el.textContent).indexOf(norm(labelText)) !== -1;
+    });
+  }
+
+  var snapshots = ['--- صفحه اصلی ---\n' + document.documentElement.outerHTML];
+  for (var p = 0; p < panelLabels.length; p++) {
+    var btn = findClickable(panelLabels[p]);
+    if (btn) {
+      btn.click();
+      await wait(900);
+      snapshots.push('--- بعد از کلیک روی: ' + panelLabels[p] + ' ---\n' + document.documentElement.outerHTML);
+    }
+  }
+  var html = snapshots.join('\n\n');
+  if (window.mobileApp) window.mobileApp.postMessage({ detail: { type: 'htmlExtract', html: html } });
+}
+
+const EXTRACT_SCRIPT = `(${extractHtmlImpl.toString()})(${JSON.stringify(PANEL_LABELS)});`;
+
+
+let messageListenerAttached = false;
+function attachBrowserMessageListener() {
+  const Browser = getBrowser();
+  if (!Browser || messageListenerAttached) return;
+  messageListenerAttached = true;
+  Browser.addListener('messageFromWebview', (event) => {
+    const detail = event && event.detail;
+    if (!detail) return;
+    if (detail.type === 'fillResult') {
+      alert('نتیجه پر کردن فیلدها:\n\n' + detail.results.join('\n'));
+    } else if (detail.type === 'htmlExtract') {
+      const out = document.getElementById('extract-output');
+      out.value = detail.html;
+      out.classList.remove('hidden');
+      document.getElementById('btn-copy-html').classList.remove('hidden');
+      setBoardStatus('HTML استخراج شد؛ می‌تونی کپی و برای بررسی بفرستی.', 'success');
+    }
+  });
+}
+
+document.getElementById('btn-open-fill').addEventListener('click', async () => {
+  const Browser = getBrowser();
+  if (!Browser) { setBoardStatus('پلاگین InAppBrowser در دسترس نیست.', 'error'); return; }
+  attachBrowserMessageListener();
+  clearBoardStatus();
+  try {
+    const res = await Browser.openWebView({
+      url: BOARD_URL,
+      title: 'تنظیمات برد',
+      showReloadButton: true,
+      toolbarType: 'default',
+      isPresentAfterPageLoad: true,
+    });
+    setTimeout(async () => {
+      const values = loadValues();
+      await Browser.executeScript({ id: res.id, code: buildFillScript(values) });
+    }, 1500);
+  } catch (err) {
+    console.error(err);
+    setBoardStatus('خطا در باز کردن صفحه برد: ' + (err.message || err), 'error');
+  }
+});
+
+document.getElementById('btn-open-only').addEventListener('click', async () => {
+  const Browser = getBrowser();
+  if (!Browser) { setBoardStatus('پلاگین InAppBrowser در دسترس نیست.', 'error'); return; }
+  clearBoardStatus();
+  try {
+    await Browser.openWebView({
+      url: BOARD_URL,
+      title: 'تنظیمات برد',
+      showReloadButton: true,
+      toolbarType: 'default',
+    });
+  } catch (err) {
+    console.error(err);
+    setBoardStatus('خطا در باز کردن صفحه برد: ' + (err.message || err), 'error');
+  }
+});
+
+document.getElementById('btn-extract-html').addEventListener('click', async () => {
+  const Browser = getBrowser();
+  if (!Browser) { setBoardStatus('پلاگین InAppBrowser در دسترس نیست.', 'error'); return; }
+  attachBrowserMessageListener();
+  clearBoardStatus();
+  setBoardStatus('در حال بارگذاری صفحه برد برای استخراج...', '');
+  try {
+    const res = await Browser.openWebView({
+      url: BOARD_URL,
+      hidden: true,
+      isPresentAfterPageLoad: true,
+    });
+    setTimeout(async () => {
+      await Browser.executeScript({ id: res.id, code: EXTRACT_SCRIPT });
+      setTimeout(() => Browser.close({ id: res.id }), 1500);
+    }, 1500);
+  } catch (err) {
+    console.error(err);
+    setBoardStatus('خطا در استخراج HTML: ' + (err.message || err), 'error');
+  }
+});
+
+document.getElementById('btn-copy-html').addEventListener('click', () => {
+  const out = document.getElementById('extract-output');
+  out.select();
+  document.execCommand('copy');
+  setBoardStatus('کپی شد.', 'success');
+});
+
+document.getElementById('btn-back-from-board').addEventListener('click', () => showScreen('list'));
+
+// ---------------------------------------------
+// منوی کشویی
+// ---------------------------------------------
+const drawer = document.getElementById('drawer');
+const drawerOverlay = document.getElementById('drawer-overlay');
+
+function openDrawer() {
+  drawer.classList.add('open');
+  drawerOverlay.classList.remove('hidden');
+}
+function closeDrawer() {
+  drawer.classList.remove('open');
+  drawerOverlay.classList.add('hidden');
+}
+
+document.querySelectorAll('.menu-btn').forEach(btn => {
+  btn.addEventListener('click', openDrawer);
+});
+drawerOverlay.addEventListener('click', closeDrawer);
+
+document.querySelectorAll('.drawer-menu li').forEach(li => {
+  li.addEventListener('click', () => {
+    const target = li.getAttribute('data-screen');
+    if (target === 'values') {
+      fillValueInputs(loadValues());
+    }
+    showScreen(target);
+    closeDrawer();
+  });
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  fillValueInputs(loadValues());
+  scanNetworks();
+});
+
+  </script>
+</body>
+</html>
