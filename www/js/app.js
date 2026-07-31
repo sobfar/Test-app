@@ -79,23 +79,46 @@ async function scanNetworks() {
 
   try {
     const perm = await Wifi.checkPermissions();
+    console.log('wifi permission status:', perm);
     if (perm.location !== 'granted') {
       const req = await Wifi.requestPermissions({ permissions: ['location'] });
+      console.log('wifi permission request result:', req);
       if (req.location !== 'granted') {
-        setStatus('برای دیدن لیست وای‌فای‌ها به دسترسی موقعیت مکانی نیاز داریم.', 'error');
+        setStatus('برای دیدن لیست وای‌فای‌ها به دسترسی موقعیت مکانی نیاز داریم. از تنظیمات گوشی، دسترسی موقعیت مکانی رو برای این اپ فعال کن.', 'error');
         loadingEl.classList.add('hidden');
         return;
       }
     }
 
-    const handle = await Wifi.addListener('networksScanned', async () => {
-      const result = await Wifi.getAvailableNetworks();
-      renderNetworks(result.networks);
+    let finished = false;
+    async function finishScan(source) {
+      if (finished) return;
+      finished = true;
+      try {
+        const result = await Wifi.getAvailableNetworks();
+        console.log('scan finished via ' + source + ', networks:', result);
+        renderNetworks(result.networks);
+      } catch (e) {
+        console.error('getAvailableNetworks failed:', e);
+        setStatus('خطا در گرفتن لیست شبکه‌ها: ' + (e.message || e), 'error');
+      }
       loadingEl.classList.add('hidden');
       handle.remove();
-    });
+    }
+
+    const handle = await Wifi.addListener('networksScanned', () => finishScan('event'));
 
     await Wifi.startScan();
+    console.log('startScan called, waiting for networksScanned event...');
+
+    // اگه رویداد networksScanned تا ۶ ثانیه فایر نشد (مثلاً به خاطر محدودیت اسکن اندروید)،
+    // خودمون مستقیم نتیجه رو می‌گیریم تا اسپینر برای همیشه نمونه
+    setTimeout(() => {
+      if (!finished) {
+        console.warn('networksScanned event did not fire within 6s, falling back');
+        finishScan('timeout-fallback');
+      }
+    }, 6000);
   } catch (err) {
     console.error(err);
     setStatus('خطا در اسکن شبکه‌ها: ' + (err.message || err), 'error');
@@ -391,6 +414,37 @@ document.getElementById('btn-copy-html').addEventListener('click', () => {
 });
 
 document.getElementById('btn-back-from-board').addEventListener('click', () => showScreen('list'));
+
+// ---------------------------------------------
+// منوی کشویی
+// ---------------------------------------------
+const drawer = document.getElementById('drawer');
+const drawerOverlay = document.getElementById('drawer-overlay');
+
+function openDrawer() {
+  drawer.classList.add('open');
+  drawerOverlay.classList.remove('hidden');
+}
+function closeDrawer() {
+  drawer.classList.remove('open');
+  drawerOverlay.classList.add('hidden');
+}
+
+document.querySelectorAll('.menu-btn').forEach(btn => {
+  btn.addEventListener('click', openDrawer);
+});
+drawerOverlay.addEventListener('click', closeDrawer);
+
+document.querySelectorAll('.drawer-menu li').forEach(li => {
+  li.addEventListener('click', () => {
+    const target = li.getAttribute('data-screen');
+    if (target === 'values') {
+      fillValueInputs(loadValues());
+    }
+    showScreen(target);
+    closeDrawer();
+  });
+});
 
 window.addEventListener('DOMContentLoaded', () => {
   fillValueInputs(loadValues());
