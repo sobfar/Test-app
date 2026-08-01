@@ -6,6 +6,7 @@
   <title>تنظیم برد</title>
   <style>
 * { box-sizing: border-box; }
+button { font-family: inherit; font-size: inherit; }
 body {
   margin: 0;
   font-family: -apple-system, Tahoma, Arial, sans-serif;
@@ -46,26 +47,6 @@ header h1 {
 }
 .hint { color: #b8a8cc; font-size: 14px; margin: 0 0 12px; }
 
-.wifi-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  overflow-y: auto;
-  flex: 1;
-}
-.wifi-list li {
-  background: linear-gradient(145deg, rgba(88, 28, 135, 0.35), rgba(15, 6, 26, 0.6));
-  border: 1px solid rgba(168, 85, 247, 0.18);
-  padding: 14px 16px;
-  border-radius: 14px;
-  margin-bottom: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.wifi-list li .ssid { font-size: 15px; }
-.wifi-list li .signal { color: #b8a8cc; font-size: 13px; }
-
 .status-box {
   padding: 10px 14px;
   border-radius: 10px;
@@ -75,24 +56,6 @@ header h1 {
 .status-box.error { background: #3a1030; color: #ff8ad4; border: 1px solid rgba(255,138,212,0.25); }
 .status-box.success { background: #1c3a2a; color: #7fe0a8; border: 1px solid rgba(127,224,168,0.25); }
 .hidden { display: none !important; }
-
-.loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex: 1;
-  color: #b8a8cc;
-}
-.spinner {
-  width: 32px; height: 32px;
-  border: 3px solid #2b1240;
-  border-top-color: #a855f7;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
 
 .form-box { display: flex; flex-direction: column; gap: 10px; }
 .form-box label { font-size: 14px; color: #cbb8e0; }
@@ -175,6 +138,11 @@ header h1 {
   border-radius: 14px;
   color: #8a7aa3;
   font-size: 11px;
+  font-family: inherit;
+  background: none;
+  border: none;
+  appearance: none;
+  -webkit-appearance: none;
   transition: color 0.15s ease, background 0.15s ease;
 }
 .tab-item .tab-icon { font-size: 19px; line-height: 1; }
@@ -187,46 +155,9 @@ header h1 {
 </head>
 <body>
 
-  <!-- صفحه ۱: لیست وای‌فای -->
-  <section id="screen-list" class="screen active">
+  <!-- صفحه اصلی: کنترل صفحه تنظیمات برد (با InAppBrowser) -->
+  <section id="screen-board" class="screen active">
     <header>
-      <h1>اتصال به وای‌فای برد</h1>
-    </header>
-
-    <p class="hint">اسم وای‌فای برد و رمزش رو وارد کن — نیازی به روشن بودن GPS نیست.</p>
-
-    <div id="status-box" class="status-box hidden"></div>
-
-    <div class="form-box">
-      <label for="wifi-ssid">اسم وای‌فای برد (SSID)</label>
-      <input type="text" id="wifi-ssid" placeholder="مثلاً ESP32-Stabilizer" autocapitalize="off" autocorrect="off" spellcheck="false" />
-
-      <label for="wifi-password">رمز عبور وای‌فای</label>
-      <input type="password" id="wifi-password" placeholder="رمز عبور را وارد کنید" />
-      <label class="checkbox-row">
-        <input type="checkbox" id="show-password" /> نمایش رمز
-      </label>
-
-      <button id="btn-connect" class="primary-btn">اتصال</button>
-    </div>
-
-    <p class="hint" style="margin-top:16px;">
-      اسم وای‌فای برد رو نمی‌دونی؟
-      <a href="#" id="btn-scan-instead" style="color:#c9a8ff;">نمایش شبکه‌های اطراف (نیاز به روشن بودن GPS)</a>
-    </p>
-
-    <ul id="wifi-list" class="wifi-list hidden"></ul>
-
-    <div id="loading" class="loading hidden">
-      <div class="spinner"></div>
-      <span>در حال اسکن شبکه‌ها...</span>
-    </div>
-  </section>
-
-  <!-- صفحه ۳: کنترل صفحه تنظیمات برد (با InAppBrowser) -->
-  <section id="screen-board" class="screen">
-    <header>
-      <button id="btn-back-from-board" class="icon-btn">→</button>
       <h1>تنظیمات برد</h1>
       <button id="btn-edit-values" class="icon-btn" title="ویرایش مقادیر">⚙️</button>
     </header>
@@ -245,10 +176,9 @@ header h1 {
     <button id="btn-copy-html" class="secondary-btn hidden">کپی کردن HTML</button>
   </section>
 
-  <!-- صفحه ۴: ویرایش مقادیر کالیبراسیون -->
+  <!-- صفحه: ویرایش مقادیر کالیبراسیون -->
   <section id="screen-values" class="screen">
     <header>
-      <button id="btn-back-from-values" class="icon-btn">→</button>
       <h1>مقادیر تنظیمات اولیه</h1>
     </header>
     <div class="form-box scroll-form">
@@ -293,10 +223,6 @@ header h1 {
 
   <!-- نوار پایین -->
   <nav id="tab-bar" class="tab-bar">
-    <button class="tab-item" data-screen="list">
-      <span class="tab-icon">📶</span>
-      <span>وای‌فای</span>
-    </button>
     <button class="tab-item" data-screen="board">
       <span class="tab-icon">🖥️</span>
       <span>برد</span>
@@ -311,10 +237,14 @@ header h1 {
 // ---------------------------------------------
 // تنظیمات
 // ---------------------------------------------
-import { CapacitorWifi } from '@capgo/capacitor-wifi';
 import { InAppBrowser } from '@capgo/capacitor-inappbrowser';
 
 const BOARD_URL = 'http://192.168.4.1';
+const BOARD_USERNAME = 'admin';
+const BOARD_PASSWORD = 'makoran';
+// یوزرنیم/رمز رو مستقیم توی URL می‌ذاریم تا WebView خودکار با Basic Auth وارد بشه
+// و دیگه نیازی به وارد کردن دستی admin/makoran هر بار نباشه.
+const BOARD_URL_AUTH = BOARD_URL.replace('http://', 'http://' + encodeURIComponent(BOARD_USERNAME) + ':' + encodeURIComponent(BOARD_PASSWORD) + '@');
 const STORAGE_KEY = 'board_calibration_values';
 
 const DEFAULT_VALUES = {
@@ -331,17 +261,12 @@ const DEFAULT_VALUES = {
   relay3: 175,
 };
 
-function getWifi() {
-  if (!CapacitorWifi) console.warn('پلاگین وای‌فای در دسترس نیست (روی مرورگر معمولی کار نمی‌کنه).');
-  return CapacitorWifi;
-}
 function getBrowser() {
   if (!InAppBrowser) console.warn('پلاگین InAppBrowser در دسترس نیست (روی مرورگر معمولی کار نمی‌کنه).');
   return InAppBrowser;
 }
 
 const screens = {
-  list: document.getElementById('screen-list'),
   board: document.getElementById('screen-board'),
   values: document.getElementById('screen-values'),
 };
@@ -352,138 +277,6 @@ function showScreen(name) {
     t.classList.toggle('active', t.getAttribute('data-screen') === name);
   });
 }
-
-const wifiListEl = document.getElementById('wifi-list');
-const loadingEl = document.getElementById('loading');
-const statusBoxEl = document.getElementById('status-box');
-
-function setStatus(message, type) {
-  statusBoxEl.textContent = message;
-  statusBoxEl.className = 'status-box ' + (type || '');
-  statusBoxEl.classList.remove('hidden');
-}
-function clearStatus() { statusBoxEl.classList.add('hidden'); }
-
-function renderNetworks(networks) {
-  wifiListEl.classList.remove('hidden');
-  wifiListEl.innerHTML = '';
-  if (!networks || networks.length === 0) {
-    wifiListEl.innerHTML = '<li style="justify-content:center;color:#9aa0a6">شبکه‌ای پیدا نشد</li>';
-    return;
-  }
-  const unique = Object.values(
-    networks.reduce((acc, n) => {
-      if (!acc[n.ssid] || acc[n.ssid].rssi < n.rssi) acc[n.ssid] = n;
-      return acc;
-    }, {})
-  ).sort((a, b) => b.rssi - a.rssi);
-
-  unique.forEach(net => {
-    const li = document.createElement('li');
-    li.innerHTML = '<span class="ssid">📶 ' + (net.ssid || '(بدون نام)') + '</span><span class="signal">' + net.rssi + ' dBm</span>';
-    li.addEventListener('click', () => {
-      document.getElementById('wifi-ssid').value = net.ssid;
-      wifiListEl.classList.add('hidden');
-    });
-    wifiListEl.appendChild(li);
-  });
-}
-
-// اسکن فقط به‌عنوان گزینه‌ی کمکیه (وقتی کاربر اسم وای‌فای برد رو نمی‌دونه)،
-// چون اندروید برای *اسکن* لیست شبکه‌ها به GPS نیاز داره — ولی برای *اتصال مستقیم*
-// با اسم شبکه‌ی مشخص، اصلاً نیازی به GPS نیست (به همین خاطر این دیگه پیش‌فرض نیست).
-async function scanNetworks() {
-  const Wifi = getWifi();
-  if (!Wifi) {
-    setStatus('این قابلیت فقط روی اپ نصب‌شده روی گوشی کار می‌کند، نه در مرورگر.', 'error');
-    return;
-  }
-  clearStatus();
-  loadingEl.classList.remove('hidden');
-  wifiListEl.innerHTML = '';
-
-  try {
-    const perm = await Wifi.checkPermissions();
-    if (perm.location !== 'granted') {
-      const req = await Wifi.requestPermissions({ permissions: ['location'] });
-      if (req.location !== 'granted') {
-        setStatus('برای نمایش لیست شبکه‌ها، اندروید به دسترسی موقعیت مکانی نیاز داره. از تنظیمات گوشی فعالش کن، یا اسم وای‌فای رو دستی وارد کن.', 'error');
-        loadingEl.classList.add('hidden');
-        return;
-      }
-    }
-
-    let finished = false;
-    async function finishScan(source) {
-      if (finished) return;
-      finished = true;
-      try {
-        const result = await Wifi.getAvailableNetworks();
-        renderNetworks(result.networks);
-      } catch (e) {
-        setStatus('خطا در گرفتن لیست شبکه‌ها: ' + (e.message || e), 'error');
-      }
-      loadingEl.classList.add('hidden');
-      handle.remove();
-    }
-
-    const handle = await Wifi.addListener('networksScanned', () => finishScan('event'));
-
-    try {
-      await Wifi.startScan();
-    } catch (scanErr) {
-      setStatus('اسکن جدید انجام نشد (احتمالاً GPS گوشی خاموشه یا اندروید موقتاً محدودش کرده) — نتایج قبلی نشون داده می‌شه. یا اسم وای‌فای رو دستی وارد کن.', 'error');
-      await finishScan('scan-failed-fallback');
-      return;
-    }
-
-    setTimeout(() => {
-      if (!finished) finishScan('timeout-fallback');
-    }, 6000);
-  } catch (err) {
-    setStatus('خطا در اسکن شبکه‌ها: ' + (err.message || err), 'error');
-    loadingEl.classList.add('hidden');
-  }
-}
-
-document.getElementById('btn-scan-instead').addEventListener('click', (e) => {
-  e.preventDefault();
-  scanNetworks();
-});
-
-document.getElementById('show-password').addEventListener('change', (e) => {
-  document.getElementById('wifi-password').type = e.target.checked ? 'text' : 'password';
-});
-
-document.getElementById('btn-connect').addEventListener('click', async () => {
-  const ssid = document.getElementById('wifi-ssid').value.trim();
-  const password = document.getElementById('wifi-password').value;
-  const Wifi = getWifi();
-  if (!Wifi) return;
-  if (!ssid) {
-    setStatus('اول اسم وای‌فای برد رو وارد کن.', 'error');
-    return;
-  }
-
-  const btn = document.getElementById('btn-connect');
-  btn.disabled = true;
-  btn.textContent = 'در حال اتصال...';
-  clearStatus();
-
-  try {
-    await Wifi.connect({
-      ssid: ssid,
-      password: password,
-      autoRouteTraffic: true,
-    });
-    showScreen('board');
-  } catch (err) {
-    setStatus('اتصال ناموفق بود: ' + (err.message || err), 'error');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'اتصال';
-  }
-});
 
 const valueFieldIds = ['vmax', 'vmin', 'hyst', 'delay', 'under', 'calout', 'calin', 'coeff', 'relay1', 'relay2', 'relay3'];
 
@@ -515,7 +308,6 @@ document.getElementById('btn-edit-values').addEventListener('click', () => {
   fillValueInputs(loadValues());
   showScreen('values');
 });
-document.getElementById('btn-back-from-values').addEventListener('click', () => showScreen('board'));
 document.getElementById('btn-save-values').addEventListener('click', () => {
   saveValues(readValueInputs());
   showScreen('board');
@@ -756,7 +548,7 @@ document.getElementById('btn-open-fill').addEventListener('click', async () => {
   clearBoardStatus();
   try {
     const res = await Browser.openWebView({
-      url: BOARD_URL,
+      url: BOARD_URL_AUTH,
       title: 'تنظیمات برد',
       showReloadButton: true,
       toolbarType: 'default',
@@ -778,7 +570,7 @@ document.getElementById('btn-open-only').addEventListener('click', async () => {
   clearBoardStatus();
   try {
     await Browser.openWebView({
-      url: BOARD_URL,
+      url: BOARD_URL_AUTH,
       title: 'تنظیمات برد',
       showReloadButton: true,
       toolbarType: 'default',
@@ -797,7 +589,7 @@ document.getElementById('btn-extract-html').addEventListener('click', async () =
   setBoardStatus('در حال بارگذاری صفحه برد برای استخراج...', '');
   try {
     const res = await Browser.openWebView({
-      url: BOARD_URL,
+      url: BOARD_URL_AUTH,
       title: 'در حال استخراج...',
       isPresentAfterPageLoad: true,
     });
@@ -818,8 +610,6 @@ document.getElementById('btn-copy-html').addEventListener('click', () => {
   setBoardStatus('کپی شد.', 'success');
 });
 
-document.getElementById('btn-back-from-board').addEventListener('click', () => showScreen('list'));
-
 // ---------------------------------------------
 // نوار پایین
 // ---------------------------------------------
@@ -835,7 +625,7 @@ document.querySelectorAll('.tab-item').forEach(tab => {
 
 window.addEventListener('DOMContentLoaded', () => {
   fillValueInputs(loadValues());
-  showScreen('list');
+  showScreen('board');
 });
 
   </script>

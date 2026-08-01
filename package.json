@@ -1,7 +1,7 @@
 {
   "name": "board-setup-app",
   "version": "1.0.0",
-  "description": "اپ اتصال و تنظیم برد از طریق وای‌فای",
+  "description": "اپ تنظیم برد استابلایزر",
   "scripts": {
     "build": "node scripts/build.js",
     "sync": "npx cap sync android",
@@ -10,7 +10,6 @@
   "dependencies": {
     "@capacitor/android": "^8.0.0",
     "@capacitor/core": "^8.0.0",
-    "@capgo/capacitor-wifi": "^8.0.0",
     "@capgo/capacitor-inappbrowser": "^8.0.0"
   },
   "devDependencies": {
