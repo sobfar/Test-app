@@ -128,6 +128,13 @@ header h1 {
   width: 100%;
 }
 .scroll-form { overflow-y: auto; flex: 1; }
+.section-divider {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+  font-size: 13px;
+}
 
 .extract-output {
   flex: 1;
@@ -300,6 +307,17 @@ header h1 {
       <label>ضریب کالیبراسیون</label>
       <input type="number" id="val-coeff" />
 
+      <div class="section-divider">آستانه‌های ولتاژ رله‌ها</div>
+
+      <label>رله ۱ (بالاترین ولتاژ) — آستانه</label>
+      <input type="number" id="val-relay1" />
+
+      <label>رله ۲ — آستانه</label>
+      <input type="number" id="val-relay2" />
+
+      <label>رله ۳ (پایین‌ترین ولتاژ) — آستانه</label>
+      <input type="number" id="val-relay3" />
+
       <button id="btn-save-values" class="primary-btn">ذخیره مقادیر</button>
     </div>
   </section>
@@ -337,6 +355,9 @@ const DEFAULT_VALUES = {
   calout: 485,
   calin: 485,
   coeff: 90,
+  relay1: 205,
+  relay2: 195,
+  relay3: 175,
 };
 
 function getWifi() {
@@ -490,7 +511,7 @@ document.getElementById('btn-connect').addEventListener('click', async () => {
   }
 });
 
-const valueFieldIds = ['vmax', 'vmin', 'hyst', 'delay', 'under', 'calout', 'calin', 'coeff'];
+const valueFieldIds = ['vmax', 'vmin', 'hyst', 'delay', 'under', 'calout', 'calin', 'coeff', 'relay1', 'relay2', 'relay3'];
 
 function loadValues() {
   try {
@@ -538,16 +559,37 @@ const PANEL_LABELS = ['تنظیمات پیشرفته', 'تنظیم آستانه�
 
 // این تابع به‌صورت متن (toString) داخل صفحه‌ی برد تزریق و اجرا می‌شه، پس نمی‌تونه
 // به هیچ متغیر یا تابعی خارج از خودش دسترسی داشته باشه — همه‌چیز باید خودکفا باشه.
-async function fillFieldsImpl(fieldMap, panelLabels) {
+async function fillFieldsImpl(fieldMap, relayFields, panelLabels) {
   var results = {};
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function norm(t) { return (t || '').toLowerCase().replace(/\s+/g, ''); }
 
   function findClickable(labelText) {
-    var all = Array.from(document.querySelectorAll('button, a, div, span'));
-    return all.find(function (el) {
+    var all = Array.from(document.querySelectorAll('button, a, div, span, li'));
+    var exact = all.find(function (el) {
+      return el.children.length === 0 && norm(el.textContent) === norm(labelText);
+    });
+    if (exact) return exact.closest('button, a, [role="button"]') || exact;
+    var partial = all.find(function (el) {
       return el.children.length === 0 && norm(el.textContent).indexOf(norm(labelText)) !== -1;
     });
+    if (partial) return partial.closest('button, a, [role="button"]') || partial;
+    return null;
+  }
+  // بعضی رابط‌ها به‌جای click ساده به pointerdown/touchstart واکنش می‌دن؛
+  // برای سازگاری بیشتر، زنجیره‌ی رویدادهای یه لمس/کلیک واقعی رو شبیه‌سازی می‌کنیم.
+  function simulateClick(el) {
+    var rect = el.getBoundingClientRect();
+    var x = rect.left + rect.width / 2;
+    var y = rect.top + rect.height / 2;
+    var opts = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y };
+    ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(function (type) {
+      try {
+        var EventCtor = type.indexOf('pointer') === 0 && window.PointerEvent ? PointerEvent : MouseEvent;
+        el.dispatchEvent(new EventCtor(type, opts));
+      } catch (e) { /* بعضی مرورگرها PointerEvent ندارن، بی‌خیال اون نوع می‌شیم */ }
+    });
+    el.click();
   }
   function findByAttrs(keywords) {
     var inputs = Array.from(document.querySelectorAll('input, select'));
@@ -586,6 +628,26 @@ async function fillFieldsImpl(fieldMap, panelLabels) {
     }
     return null;
   }
+  // برای فیلدهایی مثل «رله ۱ / رله ۲ / رله ۳» که چند کارت مشابه با یه لیبل عددی دارن:
+  // اول متنی که دقیقاً شامل «رله N» هست رو پیدا می‌کنه، بعد توی کارت (چند سطح والد) دنبال اولین input می‌گرده.
+  function findByCardNumber(cardKeyword, number) {
+    var all = Array.from(document.querySelectorAll('*'));
+    var re = new RegExp(norm(cardKeyword) + number + '(?![0-9])');
+    var labelEl = all.find(function (el) {
+      return el.children.length === 0 && re.test(norm(el.textContent));
+    });
+    if (!labelEl) return null;
+    var container = labelEl;
+    for (var i = 0; i < 6 && container; i++) {
+      if (container.querySelector) {
+        var input = container.querySelector('input, select');
+        if (input) return input;
+      }
+      container = container.parentElement;
+    }
+    return null;
+  }
+
   function fillVisibleFields() {
     Object.keys(fieldMap).forEach(function (key) {
       if (results[key] === 'پیدا و پر شد') return;
@@ -601,15 +663,30 @@ async function fillFieldsImpl(fieldMap, panelLabels) {
         results[key] = 'پیدا نشد';
       }
     });
+    Object.keys(relayFields).forEach(function (key) {
+      if (results[key] === 'پیدا و پر شد') return;
+      var r = relayFields[key];
+      var target = findByCardNumber(r.cardKeyword, r.number);
+      if (target) {
+        target.focus();
+        target.value = r.value;
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+        target.dispatchEvent(new Event('change', { bubbles: true }));
+        results[key] = 'پیدا و پر شد';
+      } else if (!results[key]) {
+        results[key] = 'پیدا نشد';
+      }
+    });
   }
 
   fillVisibleFields();
   for (var p = 0; p < panelLabels.length; p++) {
     var btn = findClickable(panelLabels[p]);
-    if (btn) { btn.click(); await wait(900); fillVisibleFields(); }
+    if (btn) { simulateClick(btn); await wait(1600); fillVisibleFields(); }
   }
 
-  var resultLines = Object.keys(fieldMap).map(function (k) { return k + ': ' + (results[k] || 'پیدا نشد'); });
+  var allKeys = Object.keys(fieldMap).concat(Object.keys(relayFields));
+  var resultLines = allKeys.map(function (k) { return k + ': ' + (results[k] || 'پیدا نشد'); });
   if (window.mobileApp) window.mobileApp.postMessage({ detail: { type: 'fillResult', results: resultLines } });
 }
 
@@ -624,7 +701,12 @@ function buildFillScript(values) {
     calin:  { value: values.calin,  keywords: ['calin', 'cal_in', 'ورودی'] },
     coeff:  { value: values.coeff,  keywords: ['coeff', 'ضریب', 'k_cal'] },
   };
-  return `(${fillFieldsImpl.toString()})(${JSON.stringify(fieldMap)}, ${JSON.stringify(PANEL_LABELS)});`;
+  const relayFields = {
+    relay1: { value: values.relay1, cardKeyword: 'رله', number: 1 },
+    relay2: { value: values.relay2, cardKeyword: 'رله', number: 2 },
+    relay3: { value: values.relay3, cardKeyword: 'رله', number: 3 },
+  };
+  return `(${fillFieldsImpl.toString()})(${JSON.stringify(fieldMap)}, ${JSON.stringify(relayFields)}, ${JSON.stringify(PANEL_LABELS)});`;
 }
 
 // همون منطق پیدا کردن پنل‌ها، ولی به‌جای پرکردن، فقط HTML هر مرحله رو برمی‌گردونه
@@ -632,18 +714,37 @@ async function extractHtmlImpl(panelLabels) {
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function norm(t) { return (t || '').toLowerCase().replace(/\s+/g, ''); }
   function findClickable(labelText) {
-    var all = Array.from(document.querySelectorAll('button, a, div, span'));
-    return all.find(function (el) {
+    var all = Array.from(document.querySelectorAll('button, a, div, span, li'));
+    var exact = all.find(function (el) {
+      return el.children.length === 0 && norm(el.textContent) === norm(labelText);
+    });
+    if (exact) return exact.closest('button, a, [role="button"]') || exact;
+    var partial = all.find(function (el) {
       return el.children.length === 0 && norm(el.textContent).indexOf(norm(labelText)) !== -1;
     });
+    if (partial) return partial.closest('button, a, [role="button"]') || partial;
+    return null;
+  }
+  function simulateClick(el) {
+    var rect = el.getBoundingClientRect();
+    var x = rect.left + rect.width / 2;
+    var y = rect.top + rect.height / 2;
+    var opts = { bubbles: true, cancelable: true, view: window, clientX: x, clientY: y };
+    ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(function (type) {
+      try {
+        var EventCtor = type.indexOf('pointer') === 0 && window.PointerEvent ? PointerEvent : MouseEvent;
+        el.dispatchEvent(new EventCtor(type, opts));
+      } catch (e) { /* بعضی مرورگرها PointerEvent ندارن */ }
+    });
+    el.click();
   }
 
   var snapshots = ['--- صفحه اصلی ---\n' + document.documentElement.outerHTML];
   for (var p = 0; p < panelLabels.length; p++) {
     var btn = findClickable(panelLabels[p]);
     if (btn) {
-      btn.click();
-      await wait(900);
+      simulateClick(btn);
+      await wait(1600);
       snapshots.push('--- بعد از کلیک روی: ' + panelLabels[p] + ' ---\n' + document.documentElement.outerHTML);
     }
   }
@@ -723,12 +824,12 @@ document.getElementById('btn-extract-html').addEventListener('click', async () =
   try {
     const res = await Browser.openWebView({
       url: BOARD_URL,
-      hidden: true,
+      title: 'در حال استخراج...',
       isPresentAfterPageLoad: true,
     });
     setTimeout(async () => {
       await Browser.executeScript({ id: res.id, code: EXTRACT_SCRIPT });
-      setTimeout(() => Browser.close({ id: res.id }), 1500);
+      setTimeout(() => Browser.close({ id: res.id }), 2200);
     }, 1500);
   } catch (err) {
     console.error(err);
