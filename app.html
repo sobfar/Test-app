@@ -18,7 +18,7 @@ body {
   display: none;
   flex-direction: column;
   height: 100vh;
-  padding: 16px;
+  padding: max(16px, env(safe-area-inset-top)) 16px calc(16px + 64px + env(safe-area-inset-bottom));
 }
 .screen.active { display: flex; }
 
@@ -151,65 +151,37 @@ header h1 {
   text-align: left;
 }
 
-/* ---------------- منوی کشویی ---------------- */
-.drawer-overlay {
+/* ---------------- نوار پایین (تب‌بار) ---------------- */
+.tab-bar {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(2px);
-  z-index: 40;
-}
-.drawer {
-  position: fixed;
-  top: 0;
+  left: 0;
   right: 0;
-  height: 100%;
-  width: 78%;
-  max-width: 300px;
-  background: linear-gradient(160deg, #2a0e42 0%, #150826 60%, #05030a 100%);
-  border-left: 1px solid rgba(168, 85, 247, 0.25);
-  box-shadow: -10px 0 40px rgba(0,0,0,0.5);
-  z-index: 50;
-  transform: translateX(100%);
-  transition: transform 0.28s ease;
+  bottom: 0;
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(21, 8, 38, 0.85), rgba(8, 3, 15, 0.98));
+  border-top: 1px solid rgba(168, 85, 247, 0.2);
+  backdrop-filter: blur(10px);
+  z-index: 30;
+}
+.tab-item {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 20px 14px;
-}
-.drawer.open { transform: translateX(0); }
-
-.drawer-header {
-  display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 6px 20px;
-  border-bottom: 1px solid rgba(168, 85, 247, 0.2);
-  margin-bottom: 12px;
+  gap: 3px;
+  padding: 8px 4px;
+  border-radius: 14px;
+  color: #8a7aa3;
+  font-size: 11px;
+  transition: color 0.15s ease, background 0.15s ease;
 }
-.drawer-logo {
-  width: 38px; height: 38px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #a855f7, #6d28d9);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 18px;
+.tab-item .tab-icon { font-size: 19px; line-height: 1; }
+.tab-item.active {
+  color: #f1eef7;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.28), rgba(109, 40, 217, 0.18));
 }
-.drawer-title { font-size: 15px; font-weight: bold; color: #f4eefb; }
-
-.drawer-menu { list-style: none; margin: 0; padding: 0; }
-.drawer-menu li {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 10px;
-  border-radius: 12px;
-  margin-bottom: 4px;
-  color: #e4d6f7;
-  font-size: 15px;
-}
-.drawer-menu li:active { background: rgba(168, 85, 247, 0.18); }
-.drawer-icon { font-size: 18px; width: 22px; text-align: center; }
-.drawer-menu li span:nth-child(2) { flex: 1; }
-.drawer-arrow { color: #7c5aa6; font-size: 16px; }
 
   </style>
 </head>
@@ -218,16 +190,32 @@ header h1 {
   <!-- صفحه ۱: لیست وای‌فای -->
   <section id="screen-list" class="screen active">
     <header>
-      <button class="icon-btn menu-btn" title="منو">☰</button>
-      <h1>اتصال به برد</h1>
-      <button id="btn-scan" class="icon-btn" title="اسکن مجدد">🔄</button>
+      <h1>اتصال به وای‌فای برد</h1>
     </header>
 
-    <p class="hint">شبکه وای‌فای برد خودتون رو از لیست زیر انتخاب کنید.</p>
+    <p class="hint">اسم وای‌فای برد و رمزش رو وارد کن — نیازی به روشن بودن GPS نیست.</p>
 
     <div id="status-box" class="status-box hidden"></div>
 
-    <ul id="wifi-list" class="wifi-list"></ul>
+    <div class="form-box">
+      <label for="wifi-ssid">اسم وای‌فای برد (SSID)</label>
+      <input type="text" id="wifi-ssid" placeholder="مثلاً ESP32-Stabilizer" autocapitalize="off" autocorrect="off" spellcheck="false" />
+
+      <label for="wifi-password">رمز عبور وای‌فای</label>
+      <input type="password" id="wifi-password" placeholder="رمز عبور را وارد کنید" />
+      <label class="checkbox-row">
+        <input type="checkbox" id="show-password" /> نمایش رمز
+      </label>
+
+      <button id="btn-connect" class="primary-btn">اتصال</button>
+    </div>
+
+    <p class="hint" style="margin-top:16px;">
+      اسم وای‌فای برد رو نمی‌دونی؟
+      <a href="#" id="btn-scan-instead" style="color:#c9a8ff;">نمایش شبکه‌های اطراف (نیاز به روشن بودن GPS)</a>
+    </p>
+
+    <ul id="wifi-list" class="wifi-list hidden"></ul>
 
     <div id="loading" class="loading hidden">
       <div class="spinner"></div>
@@ -235,27 +223,9 @@ header h1 {
     </div>
   </section>
 
-  <!-- صفحه ۲: وارد کردن رمز -->
-  <section id="screen-password" class="screen">
-    <header>
-      <button class="icon-btn menu-btn" title="منو">☰</button>
-      <button id="btn-back-from-pass" class="icon-btn">→</button>
-      <h1 id="pass-ssid-title">اتصال</h1>
-    </header>
-    <div class="form-box">
-      <label for="wifi-password">رمز عبور وای‌فای</label>
-      <input type="password" id="wifi-password" placeholder="رمز عبور را وارد کنید" />
-      <label class="checkbox-row">
-        <input type="checkbox" id="show-password" /> نمایش رمز
-      </label>
-      <button id="btn-connect" class="primary-btn">اتصال</button>
-    </div>
-  </section>
-
   <!-- صفحه ۳: کنترل صفحه تنظیمات برد (با InAppBrowser) -->
   <section id="screen-board" class="screen">
     <header>
-      <button class="icon-btn menu-btn" title="منو">☰</button>
       <button id="btn-back-from-board" class="icon-btn">→</button>
       <h1>تنظیمات برد</h1>
       <button id="btn-edit-values" class="icon-btn" title="ویرایش مقادیر">⚙️</button>
@@ -278,7 +248,6 @@ header h1 {
   <!-- صفحه ۴: ویرایش مقادیر کالیبراسیون -->
   <section id="screen-values" class="screen">
     <header>
-      <button class="icon-btn menu-btn" title="منو">☰</button>
       <button id="btn-back-from-values" class="icon-btn">→</button>
       <h1>مقادیر تنظیمات اولیه</h1>
     </header>
@@ -322,18 +291,20 @@ header h1 {
     </div>
   </section>
 
-  <!-- منوی کشویی -->
-  <div id="drawer-overlay" class="drawer-overlay hidden"></div>
-  <nav id="drawer" class="drawer">
-    <div class="drawer-header">
-      <div class="drawer-logo">⚡</div>
-      <div class="drawer-title">تنظیم برد استابلایزر</div>
-    </div>
-    <ul class="drawer-menu">
-      <li data-screen="list"><span class="drawer-icon">📶</span><span>اتصال وای‌فای</span><span class="drawer-arrow">‹</span></li>
-      <li data-screen="board"><span class="drawer-icon">🖥️</span><span>تنظیمات برد</span><span class="drawer-arrow">‹</span></li>
-      <li data-screen="values"><span class="drawer-icon">⚙️</span><span>مقادیر کالیبراسیون</span><span class="drawer-arrow">‹</span></li>
-    </ul>
+  <!-- نوار پایین -->
+  <nav id="tab-bar" class="tab-bar">
+    <button class="tab-item" data-screen="list">
+      <span class="tab-icon">📶</span>
+      <span>وای‌فای</span>
+    </button>
+    <button class="tab-item" data-screen="board">
+      <span class="tab-icon">🖥️</span>
+      <span>برد</span>
+    </button>
+    <button class="tab-item" data-screen="values">
+      <span class="tab-icon">⚙️</span>
+      <span>مقادیر</span>
+    </button>
   </nav>
 
   <script type="module">
@@ -371,19 +342,20 @@ function getBrowser() {
 
 const screens = {
   list: document.getElementById('screen-list'),
-  password: document.getElementById('screen-password'),
   board: document.getElementById('screen-board'),
   values: document.getElementById('screen-values'),
 };
 function showScreen(name) {
   Object.values(screens).forEach(s => s.classList.remove('active'));
   screens[name].classList.add('active');
+  document.querySelectorAll('.tab-item').forEach(t => {
+    t.classList.toggle('active', t.getAttribute('data-screen') === name);
+  });
 }
 
 const wifiListEl = document.getElementById('wifi-list');
 const loadingEl = document.getElementById('loading');
 const statusBoxEl = document.getElementById('status-box');
-let selectedSsid = null;
 
 function setStatus(message, type) {
   statusBoxEl.textContent = message;
@@ -393,6 +365,7 @@ function setStatus(message, type) {
 function clearStatus() { statusBoxEl.classList.add('hidden'); }
 
 function renderNetworks(networks) {
+  wifiListEl.classList.remove('hidden');
   wifiListEl.innerHTML = '';
   if (!networks || networks.length === 0) {
     wifiListEl.innerHTML = '<li style="justify-content:center;color:#9aa0a6">شبکه‌ای پیدا نشد</li>';
@@ -408,11 +381,17 @@ function renderNetworks(networks) {
   unique.forEach(net => {
     const li = document.createElement('li');
     li.innerHTML = '<span class="ssid">📶 ' + (net.ssid || '(بدون نام)') + '</span><span class="signal">' + net.rssi + ' dBm</span>';
-    li.addEventListener('click', () => onNetworkTap(net.ssid));
+    li.addEventListener('click', () => {
+      document.getElementById('wifi-ssid').value = net.ssid;
+      wifiListEl.classList.add('hidden');
+    });
     wifiListEl.appendChild(li);
   });
 }
 
+// اسکن فقط به‌عنوان گزینه‌ی کمکیه (وقتی کاربر اسم وای‌فای برد رو نمی‌دونه)،
+// چون اندروید برای *اسکن* لیست شبکه‌ها به GPS نیاز داره — ولی برای *اتصال مستقیم*
+// با اسم شبکه‌ی مشخص، اصلاً نیازی به GPS نیست (به همین خاطر این دیگه پیش‌فرض نیست).
 async function scanNetworks() {
   const Wifi = getWifi();
   if (!Wifi) {
@@ -425,12 +404,10 @@ async function scanNetworks() {
 
   try {
     const perm = await Wifi.checkPermissions();
-    console.log('wifi permission status:', perm);
     if (perm.location !== 'granted') {
       const req = await Wifi.requestPermissions({ permissions: ['location'] });
-      console.log('wifi permission request result:', req);
       if (req.location !== 'granted') {
-        setStatus('برای دیدن لیست وای‌فای‌ها به دسترسی موقعیت مکانی نیاز داریم. از تنظیمات گوشی، دسترسی موقعیت مکانی رو برای این اپ فعال کن.', 'error');
+        setStatus('برای نمایش لیست شبکه‌ها، اندروید به دسترسی موقعیت مکانی نیاز داره. از تنظیمات گوشی فعالش کن، یا اسم وای‌فای رو دستی وارد کن.', 'error');
         loadingEl.classList.add('hidden');
         return;
       }
@@ -442,10 +419,8 @@ async function scanNetworks() {
       finished = true;
       try {
         const result = await Wifi.getAvailableNetworks();
-        console.log('scan finished via ' + source + ', networks:', result);
         renderNetworks(result.networks);
       } catch (e) {
-        console.error('getAvailableNetworks failed:', e);
         setStatus('خطا در گرفتن لیست شبکه‌ها: ' + (e.message || e), 'error');
       }
       loadingEl.classList.add('hidden');
@@ -454,57 +429,56 @@ async function scanNetworks() {
 
     const handle = await Wifi.addListener('networksScanned', () => finishScan('event'));
 
-    await Wifi.startScan();
-    console.log('startScan called, waiting for networksScanned event...');
+    try {
+      await Wifi.startScan();
+    } catch (scanErr) {
+      setStatus('اسکن جدید انجام نشد (احتمالاً GPS گوشی خاموشه یا اندروید موقتاً محدودش کرده) — نتایج قبلی نشون داده می‌شه. یا اسم وای‌فای رو دستی وارد کن.', 'error');
+      await finishScan('scan-failed-fallback');
+      return;
+    }
 
-    // اگه رویداد networksScanned تا ۶ ثانیه فایر نشد (مثلاً به خاطر محدودیت اسکن اندروید)،
-    // خودمون مستقیم نتیجه رو می‌گیریم تا اسپینر برای همیشه نمونه
     setTimeout(() => {
-      if (!finished) {
-        console.warn('networksScanned event did not fire within 6s, falling back');
-        finishScan('timeout-fallback');
-      }
+      if (!finished) finishScan('timeout-fallback');
     }, 6000);
   } catch (err) {
-    console.error(err);
     setStatus('خطا در اسکن شبکه‌ها: ' + (err.message || err), 'error');
     loadingEl.classList.add('hidden');
   }
 }
 
-document.getElementById('btn-scan').addEventListener('click', scanNetworks);
+document.getElementById('btn-scan-instead').addEventListener('click', (e) => {
+  e.preventDefault();
+  scanNetworks();
+});
 
-function onNetworkTap(ssid) {
-  selectedSsid = ssid;
-  document.getElementById('pass-ssid-title').textContent = 'اتصال به ' + ssid;
-  document.getElementById('wifi-password').value = '';
-  showScreen('password');
-}
-
-document.getElementById('btn-back-from-pass').addEventListener('click', () => showScreen('list'));
 document.getElementById('show-password').addEventListener('change', (e) => {
   document.getElementById('wifi-password').type = e.target.checked ? 'text' : 'password';
 });
 
 document.getElementById('btn-connect').addEventListener('click', async () => {
+  const ssid = document.getElementById('wifi-ssid').value.trim();
   const password = document.getElementById('wifi-password').value;
   const Wifi = getWifi();
-  if (!Wifi || !selectedSsid) return;
+  if (!Wifi) return;
+  if (!ssid) {
+    setStatus('اول اسم وای‌فای برد رو وارد کن.', 'error');
+    return;
+  }
 
   const btn = document.getElementById('btn-connect');
   btn.disabled = true;
   btn.textContent = 'در حال اتصال...';
+  clearStatus();
 
   try {
     await Wifi.connect({
-      ssid: selectedSsid,
+      ssid: ssid,
       password: password,
       autoRouteTraffic: true,
     });
     showScreen('board');
   } catch (err) {
-    console.error(err);
-    alert('اتصال ناموفق بود: ' + (err.message || err));
+    setStatus('اتصال ناموفق بود: ' + (err.message || err), 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = 'اتصال';
@@ -847,39 +821,21 @@ document.getElementById('btn-copy-html').addEventListener('click', () => {
 document.getElementById('btn-back-from-board').addEventListener('click', () => showScreen('list'));
 
 // ---------------------------------------------
-// منوی کشویی
+// نوار پایین
 // ---------------------------------------------
-const drawer = document.getElementById('drawer');
-const drawerOverlay = document.getElementById('drawer-overlay');
-
-function openDrawer() {
-  drawer.classList.add('open');
-  drawerOverlay.classList.remove('hidden');
-}
-function closeDrawer() {
-  drawer.classList.remove('open');
-  drawerOverlay.classList.add('hidden');
-}
-
-document.querySelectorAll('.menu-btn').forEach(btn => {
-  btn.addEventListener('click', openDrawer);
-});
-drawerOverlay.addEventListener('click', closeDrawer);
-
-document.querySelectorAll('.drawer-menu li').forEach(li => {
-  li.addEventListener('click', () => {
-    const target = li.getAttribute('data-screen');
+document.querySelectorAll('.tab-item').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.getAttribute('data-screen');
     if (target === 'values') {
       fillValueInputs(loadValues());
     }
     showScreen(target);
-    closeDrawer();
   });
 });
 
 window.addEventListener('DOMContentLoaded', () => {
   fillValueInputs(loadValues());
-  scanNetworks();
+  showScreen('list');
 });
 
   </script>
