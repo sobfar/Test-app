@@ -6,8 +6,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
@@ -15,7 +15,9 @@ jobs:
         with:
           gradle-version: 8.9
       - run: gradle assembleDebug --stacktrace
+      - run: ls -R app/build/outputs/apk
       - uses: actions/upload-artifact@v4
         with:
-          name: rz
-          path: app/build/outputs/apk/debug/rz.apk
+          name: Rz-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
