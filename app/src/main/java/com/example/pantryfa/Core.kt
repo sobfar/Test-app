@@ -12,7 +12,7 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 // date = تاریخ میلادی به صورت ISO (مثلا 2026-11-14)
-data class Item(val barcode: String, val name: String, val date: String, val qty: Int = 1)
+data class Item(val barcode: String, val name: String, val date: String, val qty: Int = 1, val cat: String = "سایر")
 
 object Store {
     private fun prefs(c: Context) = c.getSharedPreferences("pantry", Context.MODE_PRIVATE)
@@ -23,7 +23,7 @@ object Store {
         val out = mutableListOf<Item>()
         for (i in 0 until a.length()) {
             val o = a.getJSONObject(i)
-            out.add(Item(o.getString("b"), o.getString("n"), o.getString("d"), o.optInt("q", 1)))
+            out.add(Item(o.getString("b"), o.getString("n"), o.getString("d"), o.optInt("q", 1), o.optString("c", "سایر")))
         }
         return out
     }
@@ -31,7 +31,7 @@ object Store {
     fun save(c: Context, items: List<Item>) {
         val a = JSONArray()
         for (it in items) {
-            a.put(JSONObject().put("b", it.barcode).put("n", it.name).put("d", it.date).put("q", it.qty))
+            a.put(JSONObject().put("b", it.barcode).put("n", it.name).put("d", it.date).put("q", it.qty).put("c", it.cat))
         }
         prefs(c).edit().putString("items", a.toString()).apply()
     }
