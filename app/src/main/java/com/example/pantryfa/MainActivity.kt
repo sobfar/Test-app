@@ -8,6 +8,8 @@ import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
@@ -57,7 +59,7 @@ class MainActivity : AppCompatActivity() {
     private val scanLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
             val code = r.data?.getStringExtra("code")
-            if (r.resultCode == RESULT_OK && code != null) showItemDialog(code, null)
+            if (r.resultCode == RESULT_OK && code != null) handleScan(code)
         }
 
     private inner class RowAdapter : ArrayAdapter<Item>(this@MainActivity, 0, mutableListOf<Item>()) {
@@ -156,9 +158,42 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
 
-        val req = PeriodicWorkRequest.Builder(ExpiryWorker::class.java, 1, TimeUnit.DAYS).build()
-        WorkManager.getInstance(this)
-            .enqueueUniquePeriodicWork("expiry", ExistingPeriodicWorkPolicy.KEEP, req)
+        scheduleReminder(this, true)
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(0, 1, 0, "تقویم")
+            .setIcon(android.R.drawable.ic_menu_my_calendar)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        menu.add(0, 2, 1, "تنظیمات")
+            .setIcon(android.R.drawable.ic_menu_preferences)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        when (item.itemId) {
+            1 -> startActivity(Intent(this, CalendarActivity::class.java))
+            2 -> startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        return true
+    }
+
+    private fun handleScan(code: String) {
+        val matches = items.filter { it.barcode == code }
+        if (matches.isEmpty()) {
+            showItemDialog(code, null)
+            return
+        }
+        val labels = matches.map {
+            it.name + " (×" + toFa("${it.qty}") + ") — " + Jalali.format(LocalDate.parse(it.date))
+        }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("این بارکد قبلا ثبت شده. برای ویرایش انتخاب کن")
+            .setItems(labels) { _, i -> showItemDialog(code, matches[i]) }
+            .setNeutralButton("ثبت جدید با تاریخ دیگر") { _, _ -> showItemDialog(code, null) }
+            .setNegativeButton("لغو", null)
+            .show()
     }
 
     override fun onResume() {

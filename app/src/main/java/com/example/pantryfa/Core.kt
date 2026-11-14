@@ -8,7 +8,13 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 import org.json.JSONArray
 import org.json.JSONObject
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequest
+import androidx.work.WorkManager
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 import java.time.temporal.ChronoUnit
 
 // date = تاریخ میلادی به صورت ISO (مثلا 2026-11-14)
@@ -149,22 +155,77 @@ object Jalali {
     }
 }
 
+object Prefs {
+    private fun sp(c: Context) = c.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    fun enabled(c: Context) = sp(c).getBoolean("enabled", true)
+    fun days(c: Context) = sp(c).getInt("days", 3)
+    fun hour(c: Context) = sp(c).getInt("hour", 9)
+    fun minute(c: Context) = sp(c).getInt("minute", 0)
+    fun expired(c: Context) = sp(c).getBoolean("expired", true)
+    fun save(c: Context, enabled: Boolean, days: Int, hour: Int, minute: Int, expired: Boolean) {
+        sp(c).edit()
+            .putBoolean("enabled", enabled)
+            .putInt("days", days)
+            .putInt("hour", hour)
+            .putInt("minute", minute)
+            .putBoolean("expired", expired)
+            .apply()
+    }
+}
+
+fun expiringCount(c: Context): Int {
+    val days = Prefs.days(c)
+    val withExpired = Prefs.expired(c)
+    return Store.load(c).count {
+        val d = daysLeft(it)
+        d <= days && (withExpired || d >= 0)
+    }
+}
+
+fun expiryMessage(c: Context, count: Int): String {
+    val days = Prefs.days(c)
+    val tail = if (Prefs.expired(c)) " یا شده‌اند" else ""
+    return toFa("$count") + " کالا تا " + toFa("$days") + " روز دیگر منقضی می‌شوند" + tail
+}
+
+fun sendNotification(c: Context, text: String) {
+    val nm = c.getSystemService(NotificationManager::class.java)
+    nm.createNotificationChannel(
+        NotificationChannel("expiry", "انقضا", NotificationManager.IMPORTANCE_DEFAULT)
+    )
+    val n = Notification.Builder(c, "expiry")
+        .setSmallIcon(android.R.drawable.ic_dialog_info)
+        .setContentTitle("هشدار تاریخ انقضا")
+        .setContentText(text)
+        .setAutoCancel(true)
+        .build()
+    nm.notify(1, n)
+}
+
+// keep = true: اگر قبلا زمان‌بندی شده، دست نزن (موقع باز شدن اپ)
+fun scheduleReminder(c: Context, keep: Boolean) {
+    val wm = WorkManager.getInstance(c)
+    if (!Prefs.enabled(c)) {
+        wm.cancelUniqueWork("expiry")
+        return
+    }
+    val now = LocalDateTime.now()
+    var next = now.toLocalDate().atTime(Prefs.hour(c), Prefs.minute(c))
+    if (!next.isAfter(now)) next = next.plusDays(1)
+    val delay = Duration.between(now, next).toMillis()
+    val req = PeriodicWorkRequest.Builder(ExpiryWorker::class.java, 1, TimeUnit.DAYS)
+        .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+        .build()
+    val policy = if (keep) ExistingPeriodicWorkPolicy.KEEP else ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE
+    wm.enqueueUniquePeriodicWork("expiry", policy, req)
+}
+
 class ExpiryWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     override fun doWork(): Result {
-        val items = Store.load(applicationContext)
-        val soon = items.count { daysLeft(it) <= 3 }
-        if (soon > 0) {
-            val nm = applicationContext.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(
-                NotificationChannel("expiry", "انقضا", NotificationManager.IMPORTANCE_DEFAULT)
-            )
-            val n = Notification.Builder(applicationContext, "expiry")
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("هشدار تاریخ انقضا")
-                .setContentText(toFa("$soon") + " کالا تا ۳ روز دیگر منقضی می‌شوند یا شده‌اند")
-                .setAutoCancel(true)
-                .build()
-            nm.notify(1, n)
+        val c = applicationContext
+        if (Prefs.enabled(c)) {
+            val n = expiringCount(c)
+            if (n > 0) sendNotification(c, expiryMessage(c, n))
         }
         return Result.success()
     }
