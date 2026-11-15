@@ -32,13 +32,6 @@ import androidx.core.content.ContextCompat
 import java.time.LocalDate
 import java.util.Locale
 
-fun monthLen(y: Int, m: Int): Int = when {
-    m <= 6 -> 31
-    m <= 11 -> 30
-    Jalali.parse("$y/12/30") != null -> 30
-    else -> 29
-}
-
 class CalendarActivity : AppCompatActivity() {
 
     private var jy = 0
@@ -205,6 +198,37 @@ class SettingsActivity : AppCompatActivity() {
     private val times = mutableListOf<String>()
     private lateinit var timesBox: LinearLayout
 
+    private val exportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri != null) {
+                try {
+                    contentResolver.openOutputStream(uri)?.use {
+                        it.write(exportBackup(this).toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(this, "پشتیبان ذخیره شد", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "ذخیره‌ی پشتیبان ناموفق بود", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
+    private val importLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                try {
+                    val text = contentResolver.openInputStream(uri)?.use {
+                        String(it.readBytes(), Charsets.UTF_8)
+                    } ?: ""
+                    val n = importBackup(this, text)
+                    val msg = if (n < 0) "فایل پشتیبان معتبر نیست"
+                    else toFa("$n") + " کالای جدید بازیابی شد"
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Toast.makeText(this, "خواندن فایل ناموفق بود", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+
     private fun fmt(h: Int, m: Int): String = String.format(Locale.US, "%02d:%02d", h, m)
 
     private fun pickTime(initial: String?, onPick: (String) -> Unit) {
@@ -273,6 +297,12 @@ class SettingsActivity : AppCompatActivity() {
             return t
         }
 
+        box.addView(header("اسکن"))
+        val contSw = Switch(this)
+        contSw.text = "اسکن پشت‌سرهم: بعد از ذخیره‌ی هر کالا، دوربین دوباره باز شود"
+        contSw.isChecked = Prefs.continuous(this)
+        box.addView(contSw)
+
         box.addView(header("اعلان‌ها"))
         val enabledSw = Switch(this)
         enabledSw.text = "فعال بودن اعلان‌ها"
@@ -319,7 +349,7 @@ class SettingsActivity : AppCompatActivity() {
             var days = normDigits(daysEt.text.toString()).trim().toIntOrNull() ?: 3
             if (days < 0) days = 0
             if (days > 365) days = 365
-            Prefs.save(this, enabledSw.isChecked, days, times, expiredSw.isChecked)
+            Prefs.save(this, enabledSw.isChecked, days, times, expiredSw.isChecked, contSw.isChecked)
             scheduleReminder(this, false)
             Toast.makeText(this, "ذخیره شد", Toast.LENGTH_SHORT).show()
         }
@@ -344,6 +374,20 @@ class SettingsActivity : AppCompatActivity() {
         note.text = "توجه: اندروید زمان اعلان را دقیق اجرا نمی‌کند و ممکن است چند دقیقه یا بیشتر جابه‌جا شود."
         note.setPadding(0, 16, 0, 0)
         box.addView(note)
+
+        box.addView(header("پشتیبان‌گیری"))
+        val expBtn = Button(this)
+        expBtn.text = "ذخیره‌ی پشتیبان (خروجی فایل)"
+        expBtn.setOnClickListener { exportLauncher.launch("rz-backup-" + LocalDate.now() + ".json") }
+        box.addView(expBtn)
+        val impBtn = Button(this)
+        impBtn.text = "بازیابی از فایل پشتیبان"
+        impBtn.setOnClickListener { importLauncher.launch(arrayOf("*/*")) }
+        box.addView(impBtn)
+        val bkNote = TextView(this)
+        bkNote.text = "اطلاعات فقط روی همین گوشی ذخیره می‌شود. فایل پشتیبان را جای امنی (مثلا Saved Messages تلگرام یا درایو) نگه دار."
+        bkNote.setPadding(0, 8, 0, 0)
+        box.addView(bkNote)
 
         box.addView(header("بارکدها"))
         val bcBtn = Button(this)

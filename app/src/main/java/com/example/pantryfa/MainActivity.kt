@@ -3,7 +3,10 @@ package com.example.pantryfa
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
@@ -18,9 +21,9 @@ import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.LinearLayout
-import android.widget.ListView
 import android.widget.NumberPicker
 import android.widget.ScrollView
 import android.widget.Spinner
@@ -32,21 +35,40 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
+import androidx.recyclerview.widget.DividerItemDecoration
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import java.time.LocalDate
 import java.util.Locale
 
+class RowHolder(
+    val row: LinearLayout,
+    val title: TextView,
+    val sub: TextView,
+    val status: TextView,
+    val use: Button,
+    val edit: ImageButton,
+    val del: ImageButton
+) : RecyclerView.ViewHolder(row)
+
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var list: ListView
+    private lateinit var recycler: RecyclerView
     private lateinit var adapter: RowAdapter
     private lateinit var filterSp: Spinner
     private lateinit var searchEt: EditText
     private lateinit var summaryTv: TextView
     private lateinit var emptyTv: TextView
+    private lateinit var undoBar: LinearLayout
+    private lateinit var undoText: TextView
+    private lateinit var undoBtn: Button
     private var items: MutableList<Item> = mutableListOf()
+    private val hideUndo = Runnable { undoBar.visibility = View.GONE }
 
     // اگر فرم افزودن/ویرایش باز باشد و از داخلش اسکن بزنیم، نتیجه به اینجا می‌رسد
     private var onScanned: ((String) -> Unit)? = null
+    private var onDate: ((LocalDate) -> Unit)? = null
 
     private val scanLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
@@ -58,13 +80,80 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    private val dateLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+            val iso = r.data?.getStringExtra("date_iso")
+            val cb = onDate
+            onDate = null
+            if (r.resultCode == RESULT_OK && iso != null && cb != null) cb(LocalDate.parse(iso))
+        }
+
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
-    private inner class RowAdapter : ArrayAdapter<Item>(this@MainActivity, 0, mutableListOf<Item>()) {
-        override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-            val item = getItem(position)!!
+    private fun roundBg(color: String, radius: Int): GradientDrawable {
+        val bg = GradientDrawable()
+        bg.cornerRadius = dp(radius).toFloat()
+        bg.setColor(Color.parseColor(color))
+        return bg
+    }
+
+    private inner class RowAdapter : RecyclerView.Adapter<RowHolder>() {
+        var data: List<Item> = emptyList()
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RowHolder {
+            val ctx = this@MainActivity
+            val row = LinearLayout(ctx)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.layoutDirection = View.LAYOUT_DIRECTION_RTL
+            row.gravity = Gravity.CENTER_VERTICAL
+            row.setBackgroundColor(Color.WHITE)
+            row.setPadding(dp(8), dp(10), dp(4), dp(10))
+            row.layoutParams = RecyclerView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+
+            val texts = LinearLayout(ctx)
+            texts.orientation = LinearLayout.VERTICAL
+            val title = TextView(ctx)
+            title.textSize = 17f
+            title.setTypeface(null, Typeface.BOLD)
+            val sub = TextView(ctx)
+            sub.textSize = 13f
+            sub.setTextColor(Color.GRAY)
+            val st = TextView(ctx)
+            st.textSize = 14f
+            texts.addView(title)
+            texts.addView(sub)
+            texts.addView(st)
+
+            val use = Button(ctx)
+            use.text = "مصرف −۱"
+            use.isAllCaps = false
+            use.setTextColor(Color.WHITE)
+            use.textSize = 13f
+            use.background = roundBg("#00897B", 18)
+            use.minWidth = 0
+            use.minimumWidth = 0
+            use.setPadding(dp(12), 0, dp(12), 0)
+
+            val edit = ImageButton(ctx)
+            edit.setImageResource(android.R.drawable.ic_menu_edit)
+            edit.setBackgroundColor(Color.TRANSPARENT)
+            val del = ImageButton(ctx)
+            del.setImageResource(android.R.drawable.ic_menu_delete)
+            del.setBackgroundColor(Color.TRANSPARENT)
+
+            row.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(use, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38)))
+            row.addView(edit)
+            row.addView(del)
+            return RowHolder(row, title, sub, st, use, edit, del)
+        }
+
+        override fun onBindViewHolder(h: RowHolder, position: Int) {
+            val item = data[position]
             val d = daysLeft(item)
-            val warn = Prefs.days(context)
+            val warn = Prefs.days(this@MainActivity)
             val status: String
             val color: Int
             when {
@@ -85,61 +174,17 @@ class MainActivity : AppCompatActivity() {
                     color = Color.parseColor("#2E7D32")
                 }
             }
-            val row = LinearLayout(context).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutDirection = View.LAYOUT_DIRECTION_RTL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(8), dp(10), dp(4), dp(10))
-            }
-            val texts = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
-            val title = TextView(context).apply {
-                textSize = 17f
-                setTypeface(null, android.graphics.Typeface.BOLD)
-                text = item.name + "   ×" + toFa("${item.qty}")
-            }
-            val sub = TextView(context).apply {
-                textSize = 13f
-                setTextColor(Color.GRAY)
-                text = Jalali.format(LocalDate.parse(item.date)) + "  ·  " + item.cat
-            }
-            val st = TextView(context).apply {
-                textSize = 14f
-                setTextColor(color)
-                text = status
-            }
-            texts.addView(title)
-            texts.addView(sub)
-            texts.addView(st)
-
-            val edit = ImageButton(context).apply {
-                setImageResource(android.R.drawable.ic_menu_edit)
-                setBackgroundColor(Color.TRANSPARENT)
-                setOnClickListener { showItemDialog(item.barcode, item) }
-            }
-            val del = ImageButton(context).apply {
-                setImageResource(android.R.drawable.ic_menu_delete)
-                setBackgroundColor(Color.TRANSPARENT)
-                setOnClickListener {
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("حذف «" + item.name + "»؟")
-                        .setPositiveButton("حذف") { _, _ ->
-                            val idx = items.indexOfFirst { it === item }
-                            if (idx >= 0) {
-                                items.removeAt(idx)
-                                Store.save(this@MainActivity, items)
-                                refresh()
-                            }
-                        }
-                        .setNegativeButton("لغو", null)
-                        .show()
-                }
-            }
-            row.addView(texts, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            row.addView(edit)
-            row.addView(del)
-            row.setOnClickListener { showItemDialog(item.barcode, item) }
-            return row
+            h.title.text = item.name + "   ×" + toFa("${item.qty}")
+            h.sub.text = Jalali.format(LocalDate.parse(item.date)) + "  ·  " + item.cat
+            h.status.text = status
+            h.status.setTextColor(color)
+            h.use.setOnClickListener { consume(item) }
+            h.edit.setOnClickListener { showItemDialog(item.barcode, item, false) }
+            h.del.setOnClickListener { deleteItem(item) }
+            h.row.setOnClickListener { showItemDialog(item.barcode, item, false) }
         }
+
+        override fun getItemCount(): Int = data.size
     }
 
     private fun pill(label: String, color: String): Button {
@@ -147,10 +192,7 @@ class MainActivity : AppCompatActivity() {
         b.text = label
         b.setTextColor(Color.WHITE)
         b.isAllCaps = false
-        val bg = GradientDrawable()
-        bg.cornerRadius = dp(28).toFloat()
-        bg.setColor(Color.parseColor(color))
-        b.background = bg
+        b.background = roundBg(color, 28)
         b.setPadding(dp(22), 0, dp(22), 0)
         return b
     }
@@ -186,15 +228,47 @@ class MainActivity : AppCompatActivity() {
         emptyTv.textSize = 16f
         emptyTv.setTextColor(Color.GRAY)
 
-        list = ListView(this)
         adapter = RowAdapter()
-        list.adapter = adapter
-        list.clipToPadding = false
-        list.setPadding(0, 0, 0, dp(100))
+        recycler = RecyclerView(this)
+        recycler.layoutManager = LinearLayoutManager(this)
+        recycler.adapter = adapter
+        recycler.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
+        recycler.clipToPadding = false
+        recycler.setPadding(0, 0, 0, dp(100))
+
+        // کشیدن ردیف به چپ یا راست = حذف (با امکان بازگردانی)
+        val red = Paint()
+        red.color = Color.parseColor("#E53935")
+        val swipe = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+            override fun onMove(
+                rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder
+            ): Boolean = false
+
+            override fun onSwiped(vh: RecyclerView.ViewHolder, direction: Int) {
+                val pos = vh.bindingAdapterPosition
+                if (pos != RecyclerView.NO_POSITION && pos < adapter.data.size) {
+                    deleteItem(adapter.data[pos])
+                }
+            }
+
+            override fun onChildDraw(
+                c: Canvas, rv: RecyclerView, vh: RecyclerView.ViewHolder,
+                dX: Float, dY: Float, actionState: Int, isCurrentlyActive: Boolean
+            ) {
+                val v = vh.itemView
+                if (dX > 0) {
+                    c.drawRect(v.left.toFloat(), v.top.toFloat(), v.left + dX, v.bottom.toFloat(), red)
+                } else if (dX < 0) {
+                    c.drawRect(v.right + dX, v.top.toFloat(), v.right.toFloat(), v.bottom.toFloat(), red)
+                }
+                super.onChildDraw(c, rv, vh, dX, dY, actionState, isCurrentlyActive)
+            }
+        }
+        ItemTouchHelper(swipe).attachToRecyclerView(recycler)
 
         val listFrame = FrameLayout(this)
         listFrame.addView(
-            list,
+            recycler,
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
         listFrame.addView(
@@ -203,23 +277,44 @@ class MainActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER
             )
         )
-        list.emptyView = emptyTv
 
         content.addView(searchEt)
         content.addView(filterSp)
         content.addView(summaryTv)
-        content.addView(listFrame, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        content.addView(listFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         frame.addView(
             content,
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
+
+        // نوار بازگردانی
+        undoBar = LinearLayout(this)
+        undoBar.orientation = LinearLayout.HORIZONTAL
+        undoBar.gravity = Gravity.CENTER_VERTICAL
+        undoBar.layoutDirection = View.LAYOUT_DIRECTION_RTL
+        undoBar.background = roundBg("#323232", 10)
+        undoBar.setPadding(dp(14), dp(4), dp(6), dp(4))
+        undoBar.visibility = View.GONE
+        undoText = TextView(this)
+        undoText.setTextColor(Color.WHITE)
+        undoBtn = Button(this)
+        undoBtn.text = "بازگردانی"
+        undoBtn.setTextColor(Color.parseColor("#FFD54F"))
+        undoBtn.setBackgroundColor(Color.TRANSPARENT)
+        undoBar.addView(undoText, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        undoBar.addView(undoBtn)
+        val undoLp = FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM
+        )
+        undoLp.setMargins(dp(12), 0, dp(12), dp(88))
+        frame.addView(undoBar, undoLp)
 
         val scanPill = pill("📷  اسکن بارکد", "#1565C0")
         scanPill.setOnClickListener {
             scanLauncher.launch(Intent(this, ScanActivity::class.java))
         }
         val addPill = pill("➕  افزودن دستی", "#2E7D32")
-        addPill.setOnClickListener { showItemDialog("", null) }
+        addPill.setOnClickListener { showItemDialog("", null, false) }
 
         val bar = LinearLayout(this)
         bar.orientation = LinearLayout.HORIZONTAL
@@ -291,8 +386,7 @@ class MainActivity : AppCompatActivity() {
             val qd = normDigits(q)
             shown = shown.filter { it.name.contains(q, true) || it.barcode.contains(qd) }
         }
-        adapter.clear()
-        adapter.addAll(shown)
+        adapter.data = shown
         adapter.notifyDataSetChanged()
 
         val warn = Prefs.days(this)
@@ -302,16 +396,60 @@ class MainActivity : AppCompatActivity() {
             val d = daysLeft(item)
             if (d < 0) expired++ else if (d <= warn) soon++
         }
-        summaryTv.text = toFa("${items.size}") + " کالا   |   منقضی‌شده: " + toFa("$expired") +
+        summaryTv.text = toFa("${items.size}") + " ردیف   |   منقضی‌شده: " + toFa("$expired") +
             "   |   نزدیک انقضا: " + toFa("$soon")
         emptyTv.text = if (items.isEmpty()) "هنوز کالایی ثبت نشده.\nبا دکمه «اسکن بارکد» شروع کن."
         else "کالایی پیدا نشد"
+        emptyTv.visibility = if (shown.isEmpty()) View.VISIBLE else View.GONE
     }
+
+    // ---------- مصرف، حذف و بازگردانی ----------
+
+    private fun showUndo(msg: String, snapshot: List<Item>) {
+        undoText.text = msg
+        undoBar.visibility = View.VISIBLE
+        undoBtn.setOnClickListener {
+            Store.save(this, snapshot)
+            undoBar.visibility = View.GONE
+            refresh()
+        }
+        undoBar.removeCallbacks(hideUndo)
+        undoBar.postDelayed(hideUndo, 6000)
+    }
+
+    private fun consume(item: Item) {
+        val idx = items.indexOfFirst { it === item }
+        if (idx < 0) return
+        val snap = items.toList()
+        if (item.qty > 1) {
+            items[idx] = item.copy(qty = item.qty - 1)
+            Store.save(this, items)
+            refresh()
+            showUndo("«" + item.name + "» مصرف شد؛ " + toFa("${item.qty - 1}") + " عدد مانده", snap)
+        } else {
+            items.removeAt(idx)
+            Store.save(this, items)
+            refresh()
+            showUndo("«" + item.name + "» تمام شد و حذف شد", snap)
+        }
+    }
+
+    private fun deleteItem(item: Item) {
+        val idx = items.indexOfFirst { it === item }
+        if (idx < 0) return
+        val snap = items.toList()
+        items.removeAt(idx)
+        Store.save(this, items)
+        refresh()
+        showUndo("«" + item.name + "» حذف شد", snap)
+    }
+
+    // ---------- اسکن ----------
 
     private fun handleScan(code: String) {
         val matches = items.filter { it.barcode == code }
         if (matches.isEmpty()) {
-            showItemDialog(code, null)
+            showItemDialog(code, null, true)
             return
         }
         val labels = matches.map {
@@ -319,8 +457,8 @@ class MainActivity : AppCompatActivity() {
         }.toTypedArray()
         AlertDialog.Builder(this)
             .setTitle("این بارکد قبلا ثبت شده. برای ویرایش انتخاب کن")
-            .setItems(labels) { _, i -> showItemDialog(code, matches[i]) }
-            .setNeutralButton("ثبت جدید با تاریخ دیگر") { _, _ -> showItemDialog(code, null) }
+            .setItems(labels) { _, i -> showItemDialog(code, matches[i], true) }
+            .setNeutralButton("ثبت جدید با تاریخ دیگر") { _, _ -> showItemDialog(code, null, true) }
             .setNegativeButton("لغو", null)
             .show()
     }
@@ -375,9 +513,9 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(24, 24, 24, 0)
         }
-        box.addView(col("سال", yearP), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        box.addView(col("ماه", monthP), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        box.addView(col("روز", dayP), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        box.addView(col("سال", yearP), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        box.addView(col("ماه", monthP), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        box.addView(col("روز", dayP), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
         AlertDialog.Builder(this)
             .setTitle("انتخاب تاریخ شمسی")
@@ -394,8 +532,9 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    // existing == null یعنی کالای جدید، وگرنه ویرایش
-    private fun showItemDialog(barcode: String, existing: Item?) {
+    // existing == null یعنی کالای جدید، وگرنه ویرایش.
+    // fromScan: فرم بعد از اسکن بارکد باز شده (برای «اسکن پشت‌سرهم»)
+    private fun showItemDialog(barcode: String, existing: Item?, fromScan: Boolean) {
         val pre = if (existing != null) null else lookup(barcode)
 
         val box = LinearLayout(this).apply {
@@ -428,7 +567,7 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        bcRow.addView(barcodeEt, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        bcRow.addView(barcodeEt, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         bcRow.addView(scanBtn)
 
         val name = EditText(this).apply {
@@ -474,9 +613,10 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         qtyRow.addView(minus)
-        qtyRow.addView(qty, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        qtyRow.addView(qty, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         qtyRow.addView(plus)
 
+        // تاریخ: تایپ، تقویم یا خواندن از روی بسته با دوربین
         val date = EditText(this).apply {
             hint = "تاریخ شمسی، مثلا " + Jalali.format(LocalDate.now().plusDays(30))
             inputType = InputType.TYPE_CLASS_TEXT
@@ -484,12 +624,48 @@ class MainActivity : AppCompatActivity() {
         }
         val pickBtn = Button(this).apply { text = "تقویم" }
         pickBtn.setOnClickListener { pickDate(date) }
+        val camBtn = Button(this).apply { text = "📷 تاریخ" }
+        camBtn.setOnClickListener {
+            onDate = { d ->
+                date.setText(Jalali.format(d))
+                Toast.makeText(this, "تاریخ از روی بسته پر شد؛ یک بار بررسی‌اش کن", Toast.LENGTH_LONG).show()
+            }
+            dateLauncher.launch(Intent(this, DateScanActivity::class.java))
+        }
         val dateRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        dateRow.addView(date, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        dateRow.addView(date, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         dateRow.addView(pickBtn)
+        dateRow.addView(camBtn)
+
+        // میان‌بر: به تاریخ داخل فیلد اضافه می‌شود (اگر خالی بود، از امروز)
+        val chipRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val todayBtn = Button(this).apply {
+            text = "امروز"
+            isAllCaps = false
+        }
+        todayBtn.setOnClickListener { date.setText(Jalali.format(LocalDate.now())) }
+        chipRow.addView(todayBtn)
+        fun chip(label: String, f: (LocalDate) -> LocalDate) {
+            val b = Button(this)
+            b.text = label
+            b.isAllCaps = false
+            b.setOnClickListener {
+                val base = Jalali.parse(date.text.toString()) ?: LocalDate.now()
+                date.setText(Jalali.format(f(base)))
+            }
+            chipRow.addView(b)
+        }
+        chip("+۱ هفته") { it.plusDays(7) }
+        chip("+۱ ماه") { addJalaliMonths(it, 1) }
+        chip("+۳ ماه") { addJalaliMonths(it, 3) }
+        chip("+۶ ماه") { addJalaliMonths(it, 6) }
+        chip("+۱ سال") { addJalaliMonths(it, 12) }
+        chip("+۲ سال") { addJalaliMonths(it, 24) }
+        val chipScroll = HorizontalScrollView(this)
+        chipScroll.addView(chipRow)
 
         box.addView(bcRow)
         box.addView(name)
@@ -499,6 +675,14 @@ class MainActivity : AppCompatActivity() {
         box.addView(catSp)
         box.addView(TextView(this).apply { text = "تاریخ انقضا" })
         box.addView(dateRow)
+        box.addView(
+            TextView(this).apply {
+                text = "میان‌بر: به تاریخ بالا اضافه می‌شود (اگر خالی باشد، از امروز). مثلا تاریخ تولید را بخوان و «+۱۲ ماه» بزن."
+                textSize = 12f
+                setTextColor(Color.GRAY)
+            }
+        )
+        box.addView(chipScroll)
 
         val scroll = ScrollView(this)
         scroll.addView(box)
@@ -524,17 +708,39 @@ class MainActivity : AppCompatActivity() {
                 val q = normDigits(qty.text.toString()).trim().toIntOrNull() ?: 1
                 val bc = normDigits(barcodeEt.text.toString()).trim()
                 val cat = CATS[catSp.selectedItemPosition]
-                val item = Item(bc, n, d.toString(), if (q < 1) 1 else q, cat)
+                val iso = d.toString()
+                val item = Item(bc, n, iso, if (q < 1) 1 else q, cat)
+                var merged = false
                 if (existing != null) {
                     val idx = items.indexOfFirst { it === existing }
                     if (idx >= 0) items[idx] = item else items.add(item)
                 } else {
-                    items.add(item)
+                    // اگر همین کالا با همین تاریخ قبلا ثبت شده، فقط تعدادش زیاد می‌شود
+                    val idx = items.indexOfFirst {
+                        it.date == iso && (
+                            (bc.isNotEmpty() && it.barcode == bc) ||
+                                (bc.isEmpty() && it.barcode.isEmpty() && it.name == n)
+                            )
+                    }
+                    if (idx >= 0) {
+                        val old = items[idx]
+                        items[idx] = old.copy(qty = old.qty + item.qty)
+                        merged = true
+                    } else {
+                        items.add(item)
+                    }
                 }
                 Store.save(this, items)
                 Store.upsertReg(this, bc, n, cat)
                 refresh()
                 dlg.dismiss()
+                if (merged) {
+                    Toast.makeText(this, "به تعداد کالای قبلی (با همین تاریخ) اضافه شد", Toast.LENGTH_SHORT).show()
+                }
+                if (fromScan && Prefs.continuous(this)) {
+                    Toast.makeText(this, "ذخیره شد. بارکد بعدی را اسکن کن", Toast.LENGTH_SHORT).show()
+                    scanLauncher.launch(Intent(this, ScanActivity::class.java))
+                }
             }
         }
         dlg.show()
