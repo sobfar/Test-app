@@ -12,6 +12,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
@@ -111,6 +112,8 @@ class CalendarActivity : AppCompatActivity() {
         return true
     }
 
+    private fun col(id: Int): Int = ContextCompat.getColor(this, id)
+
     private fun cell(text: String, bg: Int?, bold: Boolean, color: Int): TextView {
         val tv = TextView(this)
         tv.text = text
@@ -148,7 +151,7 @@ class CalendarActivity : AppCompatActivity() {
         }
         for (n in names) {
             head.addView(
-                cell(n, null, true, Color.DKGRAY),
+                cell(n, null, true, col(R.color.summary_text)),
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             )
         }
@@ -167,10 +170,10 @@ class CalendarActivity : AppCompatActivity() {
                     val cnt = byDay[day]?.size ?: 0
                     val isToday = (jy == tj[0] && jm == tj[1] && day == tj[2])
                     val txt = toFa("$day") + if (cnt > 0) "\n" + toFa("$cnt") + " کالا" else ""
-                    val bg = if (cnt > 0) Color.parseColor("#FFCDD2") else Color.parseColor("#F5F5F5")
-                    row.addView(cell(txt, bg, isToday, if (isToday) Color.BLUE else Color.BLACK), lp)
+                    val bg = if (cnt > 0) col(R.color.cal_has) else col(R.color.cal_empty)
+                    row.addView(cell(txt, bg, isToday, if (isToday) col(R.color.cal_today) else col(R.color.cal_text)), lp)
                 } else {
-                    row.addView(cell("", null, false, Color.BLACK), lp)
+                    row.addView(cell("", null, false, col(R.color.cal_text)), lp)
                 }
                 day++
             }
@@ -296,6 +299,25 @@ class SettingsActivity : AppCompatActivity() {
             t.setPadding(0, 40, 0, 8)
             return t
         }
+
+        box.addView(header("ظاهر برنامه"))
+        val themeSp = Spinner(this)
+        themeSp.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_dropdown_item,
+            listOf("مثل تنظیمات گوشی", "روشن", "تیره")
+        )
+        themeSp.setSelection(Prefs.theme(this))
+        themeSp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                if (pos != Prefs.theme(this@SettingsActivity)) {
+                    Prefs.setTheme(this@SettingsActivity, pos)
+                    applyTheme(this@SettingsActivity)
+                }
+            }
+
+            override fun onNothingSelected(p: AdapterView<*>?) {}
+        }
+        box.addView(themeSp)
 
         box.addView(header("اسکن"))
         val contSw = Switch(this)

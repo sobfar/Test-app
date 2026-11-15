@@ -3,7 +3,9 @@ package com.example.pantryfa
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
@@ -64,6 +66,7 @@ object Store {
             )
         }
         prefs(c).edit().putString("items", a.toString()).apply()
+        updateWidgets(c)
     }
 
     fun loadReg(c: Context): MutableList<Reg> {
@@ -117,6 +120,10 @@ object Prefs {
     fun days(c: Context) = sp(c).getInt("days", 3)
     fun expired(c: Context) = sp(c).getBoolean("expired", true)
     fun continuous(c: Context) = sp(c).getBoolean("continuous", true)
+    fun group(c: Context) = sp(c).getBoolean("group", false)
+    fun setGroup(c: Context, v: Boolean) = sp(c).edit().putBoolean("group", v).apply()
+    fun theme(c: Context) = sp(c).getInt("theme", 0)
+    fun setTheme(c: Context, v: Int) = sp(c).edit().putInt("theme", v).apply()
 
     // ساعت‌های اعلان به صورت HH:MM
     fun times(c: Context): MutableList<String> {
@@ -140,33 +147,54 @@ object Prefs {
     }
 }
 
-fun expiringCount(c: Context): Int {
+fun statusText(d: Int): String = when {
+    d < 0 -> "منقضی شده (" + toFa("${-d}") + " روز پیش)"
+    d == 0 -> "امروز منقضی می‌شود"
+    else -> toFa("$d") + " روز مانده"
+}
+
+// کالاهای نزدیک انقضا (و در صورت فعال بودن گزینه، منقضی‌شده‌ها) به ترتیب تاریخ
+fun expiringItems(c: Context): List<Item> {
     val days = Prefs.days(c)
     val withExpired = Prefs.expired(c)
-    return Store.load(c).count {
+    return Store.load(c).filter {
         val d = daysLeft(it)
         d <= days && (withExpired || d >= 0)
-    }
+    }.sortedBy { it.date }
 }
 
-fun expiryMessage(c: Context, count: Int): String {
-    val days = Prefs.days(c)
-    val tail = if (Prefs.expired(c)) " یا شده‌اند" else ""
-    return toFa("$count") + " کالا تا " + toFa("$days") + " روز دیگر منقضی می‌شوند" + tail
+fun expiringCount(c: Context): Int = expiringItems(c).size
+
+// متن کوتاه (سه کالای اول) و متن کامل (تا ۸ کالا) اعلان
+fun expirySummary(list: List<Item>): Pair<String, String> {
+    val names = list.take(3).joinToString("، ") { it.name }
+    val rest = list.size - 3
+    val short = toFa("${list.size}") + " کالا نزدیک انقضاست: " + names +
+        (if (rest > 0) " و " + toFa("$rest") + " مورد دیگر" else "")
+    val big = list.take(8).joinToString("\n") { "• " + it.name + " — " + statusText(daysLeft(it)) } +
+        (if (list.size > 8) "\n…" else "")
+    return Pair(short, big)
 }
 
-fun sendNotification(c: Context, text: String) {
+fun sendNotification(c: Context, text: String, big: String? = null) {
     val nm = c.getSystemService(NotificationManager::class.java)
     nm.createNotificationChannel(
         NotificationChannel("expiry", "انقضا", NotificationManager.IMPORTANCE_DEFAULT)
     )
-    val n = Notification.Builder(c, "expiry")
-        .setSmallIcon(android.R.drawable.ic_dialog_info)
+    val open = Intent(c, MainActivity::class.java)
+        .putExtra("soon", true)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    val pi = PendingIntent.getActivity(
+        c, 0, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    )
+    val b = Notification.Builder(c, "expiry")
+        .setSmallIcon(R.drawable.ic_notif)
         .setContentTitle("هشدار تاریخ انقضا")
         .setContentText(text)
+        .setContentIntent(pi)
         .setAutoCancel(true)
-        .build()
-    nm.notify(1, n)
+    if (big != null) b.setStyle(Notification.BigTextStyle().bigText(big))
+    nm.notify(1, b.build())
 }
 
 // برای هر ساعت تنظیم‌شده یک کار تکراری روزانه ثبت می‌شود.
@@ -197,9 +225,13 @@ fun scheduleReminder(c: Context, keep: Boolean) {
 class ExpiryWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     override fun doWork(): Result {
         val c = applicationContext
+        updateWidgets(c)
         if (Prefs.enabled(c)) {
-            val n = expiringCount(c)
-            if (n > 0) sendNotification(c, expiryMessage(c, n))
+            val list = expiringItems(c)
+            if (list.isNotEmpty()) {
+                val m = expirySummary(list)
+                sendNotification(c, m.first, m.second)
+            }
         }
         return Result.success()
     }

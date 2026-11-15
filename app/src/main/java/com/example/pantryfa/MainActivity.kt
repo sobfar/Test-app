@@ -19,6 +19,7 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
@@ -52,11 +53,15 @@ class RowHolder(
     val del: ImageButton
 ) : RecyclerView.ViewHolder(row)
 
+class HeaderHolder(val tv: TextView) : RecyclerView.ViewHolder(tv)
+
 class MainActivity : AppCompatActivity() {
 
     private lateinit var recycler: RecyclerView
     private lateinit var adapter: RowAdapter
     private lateinit var filterSp: Spinner
+    private lateinit var soonCb: CheckBox
+    private lateinit var groupCb: CheckBox
     private lateinit var searchEt: EditText
     private lateinit var summaryTv: TextView
     private lateinit var emptyTv: TextView
@@ -90,6 +95,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
 
+    private fun col(id: Int): Int = ContextCompat.getColor(this, id)
+
     private fun roundBg(color: String, radius: Int): GradientDrawable {
         val bg = GradientDrawable()
         bg.cornerRadius = dp(radius).toFloat()
@@ -97,16 +104,33 @@ class MainActivity : AppCompatActivity() {
         return bg
     }
 
-    private inner class RowAdapter : RecyclerView.Adapter<RowHolder>() {
-        var data: List<Item> = emptyList()
+    // ردیف‌ها: یا تیتر دسته (String) یا کالا (Item)
+    private inner class RowAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+        var rows: List<Any> = emptyList()
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RowHolder {
+        override fun getItemViewType(position: Int): Int = if (rows[position] is Item) 1 else 0
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
             val ctx = this@MainActivity
+            if (viewType == 0) {
+                val tv = TextView(ctx)
+                tv.textSize = 14f
+                tv.setTypeface(null, Typeface.BOLD)
+                tv.setTextColor(Color.WHITE)
+                tv.setBackgroundColor(Color.parseColor("#546E7A"))
+                tv.layoutDirection = View.LAYOUT_DIRECTION_RTL
+                tv.setPadding(dp(12), dp(6), dp(12), dp(6))
+                tv.layoutParams = RecyclerView.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                return HeaderHolder(tv)
+            }
+
             val row = LinearLayout(ctx)
             row.orientation = LinearLayout.HORIZONTAL
             row.layoutDirection = View.LAYOUT_DIRECTION_RTL
             row.gravity = Gravity.CENTER_VERTICAL
-            row.setBackgroundColor(Color.WHITE)
+            row.setBackgroundColor(col(R.color.row_bg))
             row.setPadding(dp(8), dp(10), dp(4), dp(10))
             row.layoutParams = RecyclerView.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
@@ -119,7 +143,7 @@ class MainActivity : AppCompatActivity() {
             title.setTypeface(null, Typeface.BOLD)
             val sub = TextView(ctx)
             sub.textSize = 13f
-            sub.setTextColor(Color.GRAY)
+            sub.setTextColor(col(R.color.text_secondary))
             val st = TextView(ctx)
             st.textSize = 14f
             texts.addView(title)
@@ -150,33 +174,26 @@ class MainActivity : AppCompatActivity() {
             return RowHolder(row, title, sub, st, use, edit, del)
         }
 
-        override fun onBindViewHolder(h: RowHolder, position: Int) {
-            val item = data[position]
+        override fun onBindViewHolder(h: RecyclerView.ViewHolder, position: Int) {
+            val r = rows[position]
+            if (h is HeaderHolder && r is String) {
+                h.tv.text = r
+                return
+            }
+            if (h is RowHolder && r is Item) bind(h, r)
+        }
+
+        private fun bind(h: RowHolder, item: Item) {
             val d = daysLeft(item)
             val warn = Prefs.days(this@MainActivity)
-            val status: String
-            val color: Int
-            when {
-                d < 0 -> {
-                    status = "منقضی شده (" + toFa("${-d}") + " روز پیش)"
-                    color = Color.parseColor("#C62828")
-                }
-                d == 0 -> {
-                    status = "امروز منقضی می‌شود"
-                    color = Color.parseColor("#C62828")
-                }
-                d <= warn -> {
-                    status = toFa("$d") + " روز مانده"
-                    color = Color.parseColor("#EF6C00")
-                }
-                else -> {
-                    status = toFa("$d") + " روز مانده"
-                    color = Color.parseColor("#2E7D32")
-                }
+            val color = when {
+                d <= 0 -> col(R.color.status_bad)
+                d <= warn -> col(R.color.status_warn)
+                else -> col(R.color.status_ok)
             }
             h.title.text = item.name + "   ×" + toFa("${item.qty}")
             h.sub.text = Jalali.format(LocalDate.parse(item.date)) + "  ·  " + item.cat
-            h.status.text = status
+            h.status.text = statusText(d)
             h.status.setTextColor(color)
             h.use.setOnClickListener { consume(item) }
             h.edit.setOnClickListener { showItemDialog(item.barcode, item, false) }
@@ -184,7 +201,7 @@ class MainActivity : AppCompatActivity() {
             h.row.setOnClickListener { showItemDialog(item.barcode, item, false) }
         }
 
-        override fun getItemCount(): Int = data.size
+        override fun getItemCount(): Int = rows.size
     }
 
     private fun pill(label: String, color: String): Button {
@@ -218,15 +235,25 @@ class MainActivity : AppCompatActivity() {
             this, android.R.layout.simple_spinner_dropdown_item, listOf("همه دسته‌ها") + CATS
         )
 
+        soonCb = CheckBox(this)
+        soonCb.text = "فقط نزدیک انقضا"
+        groupCb = CheckBox(this)
+        groupCb.text = "گروه‌بندی بر اساس دسته"
+        groupCb.isChecked = Prefs.group(this)
+        val checks = LinearLayout(this)
+        checks.orientation = LinearLayout.HORIZONTAL
+        checks.addView(soonCb, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+        checks.addView(groupCb, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1.3f))
+
         summaryTv = TextView(this)
         summaryTv.textSize = 13f
-        summaryTv.setTextColor(Color.DKGRAY)
+        summaryTv.setTextColor(col(R.color.summary_text))
         summaryTv.setPadding(dp(4), dp(4), dp(4), dp(4))
 
         emptyTv = TextView(this)
         emptyTv.gravity = Gravity.CENTER
         emptyTv.textSize = 16f
-        emptyTv.setTextColor(Color.GRAY)
+        emptyTv.setTextColor(col(R.color.text_secondary))
 
         adapter = RowAdapter()
         recycler = RecyclerView(this)
@@ -236,7 +263,7 @@ class MainActivity : AppCompatActivity() {
         recycler.clipToPadding = false
         recycler.setPadding(0, 0, 0, dp(100))
 
-        // کشیدن ردیف به چپ یا راست = حذف (با امکان بازگردانی)
+        // کشیدن ردیف به چپ یا راست = حذف (با امکان بازگردانی). تیتر دسته‌ها کشیده نمی‌شوند.
         val red = Paint()
         red.color = Color.parseColor("#E53935")
         val swipe = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
@@ -244,11 +271,12 @@ class MainActivity : AppCompatActivity() {
                 rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder
             ): Boolean = false
 
+            override fun getSwipeDirs(rv: RecyclerView, vh: RecyclerView.ViewHolder): Int =
+                if (vh is RowHolder) super.getSwipeDirs(rv, vh) else 0
+
             override fun onSwiped(vh: RecyclerView.ViewHolder, direction: Int) {
-                val pos = vh.bindingAdapterPosition
-                if (pos != RecyclerView.NO_POSITION && pos < adapter.data.size) {
-                    deleteItem(adapter.data[pos])
-                }
+                val r = adapter.rows.getOrNull(vh.bindingAdapterPosition)
+                if (r is Item) deleteItem(r)
             }
 
             override fun onChildDraw(
@@ -280,6 +308,7 @@ class MainActivity : AppCompatActivity() {
 
         content.addView(searchEt)
         content.addView(filterSp)
+        content.addView(checks)
         content.addView(summaryTv)
         content.addView(listFrame, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
         frame.addView(
@@ -340,6 +369,11 @@ class MainActivity : AppCompatActivity() {
 
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
+        soonCb.setOnCheckedChangeListener { _, _ -> refresh() }
+        groupCb.setOnCheckedChangeListener { _, checked ->
+            Prefs.setGroup(this, checked)
+            refresh()
+        }
 
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -349,6 +383,21 @@ class MainActivity : AppCompatActivity() {
         }
 
         scheduleReminder(this, true)
+        handleIntent(intent)
+    }
+
+    // وقتی از اعلان یا ویجت باز شود، فقط کالاهای نزدیک انقضا نشان داده می‌شود
+    private fun handleIntent(i: Intent?) {
+        if (i != null && i.getBooleanExtra("soon", false)) {
+            soonCb.isChecked = true
+            i.removeExtra("soon")
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIntent(intent)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -379,17 +428,30 @@ class MainActivity : AppCompatActivity() {
         items.sortBy { it.date }
         Store.syncReg(this, items)
 
+        val warn = Prefs.days(this)
         val pos = filterSp.selectedItemPosition
         var shown: List<Item> = if (pos <= 0) items else items.filter { it.cat == CATS[pos - 1] }
+        if (soonCb.isChecked) shown = shown.filter { daysLeft(it) <= warn }
         val q = searchEt.text.toString().trim()
         if (q.isNotEmpty()) {
             val qd = normDigits(q)
             shown = shown.filter { it.name.contains(q, true) || it.barcode.contains(qd) }
         }
-        adapter.data = shown
+
+        val rows = ArrayList<Any>()
+        if (groupCb.isChecked) {
+            val grouped = shown.groupBy { it.cat }
+            for (cat in CATS) {
+                val g = grouped[cat] ?: continue
+                rows.add(cat + "  (" + toFa("${g.size}") + ")")
+                rows.addAll(g)
+            }
+        } else {
+            rows.addAll(shown)
+        }
+        adapter.rows = rows
         adapter.notifyDataSetChanged()
 
-        val warn = Prefs.days(this)
         var expired = 0
         var soon = 0
         for (item in items) {
@@ -398,9 +460,12 @@ class MainActivity : AppCompatActivity() {
         }
         summaryTv.text = toFa("${items.size}") + " ردیف   |   منقضی‌شده: " + toFa("$expired") +
             "   |   نزدیک انقضا: " + toFa("$soon")
-        emptyTv.text = if (items.isEmpty()) "هنوز کالایی ثبت نشده.\nبا دکمه «اسکن بارکد» شروع کن."
-        else "کالایی پیدا نشد"
-        emptyTv.visibility = if (shown.isEmpty()) View.VISIBLE else View.GONE
+        emptyTv.text = when {
+            items.isEmpty() -> "هنوز کالایی ثبت نشده.\nبا دکمه «اسکن بارکد» شروع کن."
+            soonCb.isChecked && shown.isEmpty() -> "✓ کالایی نزدیک انقضا نیست"
+            else -> "کالایی پیدا نشد"
+        }
+        emptyTv.visibility = if (rows.isEmpty()) View.VISIBLE else View.GONE
     }
 
     // ---------- مصرف، حذف و بازگردانی ----------
