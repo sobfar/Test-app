@@ -1,1 +1,13 @@
-
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="row_bg">#303030</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="summary_text">#CCCCCC</color>
+    <color name="status_bad">#EF5350</color>
+    <color name="status_warn">#FFA726</color>
+    <color name="status_ok">#66BB6A</color>
+    <color name="cal_has">#5D2A2A</color>
+    <color name="cal_empty">#3A3A3A</color>
+    <color name="cal_text">#FFFFFF</color>
+    <color name="cal_today">#64B5F6</color>
+</resources>
